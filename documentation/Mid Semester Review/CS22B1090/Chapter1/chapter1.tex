@@ -1,0 +1,38 @@
+\chapter{INTRODUCTION}
+\graphicspath{{Chapter1/}}
+
+\section{Background and Motivation}
+\subsection{Cloud Computing and Data Privacy}
+Cloud computing has revolutionized the way organizations deal with information management and processing by offering on-demand services for storage and computational resources. Through data outsourcing to the cloud, companies are able to save costs and simplify their information technology systems by relying on cloud service providers to deal with the physical layer of the cloud. However, this new way of dealing with data has resulted in critical security concerns regarding data confidentiality. To prevent the risk of data breach by curious cloud service providers, data owners tend to encrypt data such as medical records and financial logs before outsourcing them.
+
+Although this encryption method guarantees data privacy, it poses a major hindrance to data retrieval as well as utilization. In the past, retrieving certain data from the encrypted data repository has called for the entire data repository to be downloaded and decrypted. This practice becomes absolutely impossible as the volume of data increases. This is why Searchable Encryption (SE) has come to play a crucial role as a data security technology that allows users to carry out keyword search operations directly on the encrypted data within the cloud environment \cite{song2000practical}.%
+
+\section{Limitations of Existing Approaches}
+Ever since the development and introduction of early searchable encryption systems, researchers have sought to improve the systems with regard to search, efficiency, and privacy. The early systems were only able to perform either a single or multi-keyword search \cite{song2000practical}. The early systems, which were very strict, did not have the ability to perform a search with a typo, and a user would receive zero results for a keyword that had a spelling error \cite{song2000practical}. The later versions of searchable encryption systems included the option for a fuzzy search, which allowed for a few typos. However, the systems had a major problem with regard to storage, and a large number of index sizes had to be generated for a keyword with a specified edit distance \cite{li2010fuzzy}. The later versions of searchable encryption systems removed the storage problem by incorporating Locality-Sensitive Hashing (LSH), which allowed for a fuzzy search \cite{wang2014privacy}. However, the later versions of searchable encryption systems, which were based on LSH, had major drawbacks.
+
+\begin{table}[h]
+    \caption{Evolution of Searchable Encryption Paradigms}
+    \centering
+    \begin{tabular}{||l c c c||} 
+        \hline
+        Scheme & Search Type & Cryptography & False Negatives \\ [0.5ex] 
+        \hline\hline
+        Early SE \cite{song2000practical} & Exact Match & Symmetric & N/A \\ 
+        Expanded Index \cite{li2010fuzzy} & Single Fuzzy & Symmetric & Low (High Storage) \\
+        Baseline LSH \cite{wang2014privacy} & Multi Fuzzy & Symmetric & High \\
+        \textbf{Proposed MP-LSH} & \textbf{Multi Fuzzy} & \textbf{Asymmetric} & \textbf{Low} \\ [1ex] 
+        \hline
+    \end{tabular}
+\end{table}
+
+The primary limitations of the current LSH-based symmetric schemes include:
+\begin{itemize}
+    \item \textbf{Elevated False Negative Rates:} Standard LSH algorithms inherently produce false negatives by missing relevant documents that fall just outside strict hashing boundaries.% 
+    \item \textbf{Symmetric Key Management Bottlenecks:} Relying on symmetric matrices for inner-product computation requires sharing a master secret key with all authorized users. In a dynamic, multi-user cloud environment, this makes key distribution, rotation, and revocation virtually impossible to manage securely.
+    \item \textbf{Rigid Access Control:} The symmetric nature of the baseline scheme prevents the data owner from granting granular, user-specific search permissions without compromising the entire system's security architecture.
+\end{itemize}
+
+\section{Proposed Solution and Contributions}
+To address the inflexibility of exact matching algorithms and the scalability limitations of symmetric key systems, this project introduces an efficient and sophisticated public key-based multi-keyword fuzzy search paradigm. The proposed architecture provides an exact fuzzy search via algorithmic advances while completely bypassing the need for index expansion and dictionaries, making our solution computationally efficient \cite{wang2014privacy}.
+
+The key defining feature of the proposed system is its shift from a symmetric matrix-based search evaluation process to an Inner Product Predicate Encryption (IPE) paradigm \cite{shen2009predicate}. This allows for an asymmetric data security solution wherein a number of data providers can use a commonly available public key for encrypting the indexes of documents, while the data owner maintains a master secret key for issuing and revoking specific search tokens for individual users. To further improve the search accuracy, the proposed solution has also upgraded the traditional hashing process with a Multi-Probe Locality-Sensitive Hashing (MP-LSH) \cite{lv2007multi}. By evaluating adjacent hash buckets that have a high probability of containing valid nearest neighbors, the solution has significantly reduced the false negative rate.

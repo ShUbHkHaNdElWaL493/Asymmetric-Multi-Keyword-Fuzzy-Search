@@ -1,0 +1,47 @@
+\chapter{MATHEMATICAL PRELIMINARIES}
+\graphicspath{{Chapter3/}}
+
+\section{Keyword Transformation: Bigram Vectors}
+For the purpose of quantitative distance computation between textual strings, each keyword must be transformed into a numerical vector format. First off, a keyword is transformed into a bigram set, where every combination of two consecutive letters within a keyword is considered \cite{wang2014privacy}.% [cite: 139] 
+For example, a keyword “network” is transformed into a bigram collection {ne, et, tw, wo, or, rk} \cite{wang2014privacy}.% [cite: 140] 
+
+This bigram collection is further transformed into a definitive vector of dimensionality $26^2$, where each dimension of the vector represents a unique combination of two consecutive letters within a keyword.% [cite: 141, 142] 
+A dimension of the vector is set to 1 if the bigram is included within the keyword's bigram collection; otherwise, it is set to 0.% [cite: 143] 
+Since the order of bigrams is ignored during this transformation, this vectorization inherently resists positional typos as well as character substitution typos.% [cite: 144] 
+As a result of this transformation, any keyword spelling error is guaranteed to produce a vector that is geometrically adjacent to the correct spelling of the keyword, thus enabling a precise evaluation of their similarity through Euclidean distance computation \cite{wang2014privacy}.% [cite: 146]
+
+\section{Bloom Filters}
+% 
+A Bloom filter acts like a memory-optimized probabilistic array, which is best suited for quick membership tests. A Bloom filter consists of a bit array of size $m$, which is initialized to all zeros. For adding an element $a$ to the dataset $\mathcal{S} = \{a_1, a_2, \dots, a_n\}$, the structure makes use of a family of $l$ different hash functions, which are defined as $\mathcal{H} = \{h_i | h_i : \mathcal{S} \rightarrow [1, m], 1 \le i \le l\}$. Each function $h_i$ maps the element $a$ to some integer $h_i(a)$ within the range $[1, m]$, and the corresponding elements at the locations $h_i(a)$ are flipped to $1$.
+
+In order to test the presence of a particular element $q$, the same family of $l$ hash functions is applied. If the corresponding elements at the locations $h_i(q)$ contain a zero, the particular element is guaranteed to be absent.
+On the other hand, if all the checked indices report a $1$, then the element is either present or a false positive has occurred.% [cite: 114]  
+In the case of an $m$-bit array and $l$ functions, the probability of a false positive is approximately given by $(1-e^{-\frac{ln}{m}})^l$. % [cite: 115]
+
+\section{Locality-Sensitive Hashing (LSH)}
+While it is the purpose of cryptographic hash functions to produce hash digests that are vastly dissimilar even for almost identical input data, it is the very purpose of Locality Sensitive Hashing to find an LSH function that maps spatially proximal data points to hash bins with the same hash signature with a significantly higher probability than spatially distant points \cite{datar2004locality}.
+
+Mathematically, assuming a distance metric $d(s,t)$ between two vectors, a designated hash family $\mathcal{H}$ qualifies as $(r_1, r_2, p_1, p_2)$-sensitive if it meets these probabilistic conditions:% [cite: 117]
+$$ \text{if } d(s,t) \le r_1 : Pr[h(s)=h(t)] \ge p_1 $$% [cite: 118]
+$$ \text{if } d(s,t) \ge r_2 : Pr[h(s)=h(t)] \le p_2 $$% [cite: 119]
+
+For mapping the bigram vectors in our architecture, we deploy the $p$-stable LSH family \cite{datar2004locality}.% [cite: 123] 
+The specific hash function is formulated as:
+$$ h_{a,b}(v) = \lfloor \frac{a \cdot v + b}{w} \rfloor $$% [cite: 124, 547]
+In this formulation, $v$ and $a$ represent vectors, while $b$ and $w$ are scalar real numbers acting as projection parameters.% [cite: 124]
+
+\section{Multi-Probe LSH (MP-LSH)}
+% 
+Though in the conventional LSH, all the vectors are mapped to the same bucket, in many cases, the vectors near the boundary of the projection width $w$ are mapped to the next bucket, resulting in false negatives. To address this, we propose a method to improve the conventional LSH by incorporating a novel approach called Multi-Probe Locality-Sensitive Hashing (MP-LSH) \cite{lv2007multi}.
+
+In the conventional LSH, instead of using the hash value of the main function $h_{a, b}(v)$, MP-LSH proposes a set of perturbation vectors $c = (\delta_1, \delta_2, \dots, \delta_l)$. These perturbation vectors are applied to the conventional hash function output to identify the adjacent buckets $h(v) + c$ that have the maximum probability of containing the nearest neighbors \cite{lv2007multi}.
+
+\section{Bilinear Pairings and Inner Product Predicate Encryption}
+To transition from the symmetric matrix multiplication of the baseline scheme to a public-key infrastructure, we employ Bilinear Pairings to facilitate Inner Product Predicate Encryption (IPE) \cite{shen2009predicate}. Let $\mathbb{G}$ and $\mathbb{G}_T$ be two cyclic multiplicative groups of prime order $p$, and let $g$ be a generator of $\mathbb{G}$. A bilinear map $e: \mathbb{G} \times \mathbb{G} \rightarrow \mathbb{G}_T$ possesses the following properties:
+\begin{itemize}
+    \item \textbf{Bilinearity:} For all $u, v \in \mathbb{G}$ and $a, b \in \mathbb{Z}_p^*$, $e(u^a, v^b) = e(u, v)^{ab}$.
+    \item \textbf{Non-degeneracy:} $e(g, g) \neq 1$.
+    \item \textbf{Computability:} There exists an efficient algorithm to compute $e(u, v)$ for any $u, v \in \mathbb{G}$.
+\end{itemize}
+
+Utilizing this mapping, the IPE framework enables the Cloud Server to “blindly” compute the inner product between $\langle \mathcal{I_D}, \mathcal{Q} \rangle$, as proposed by Shen et al. in \cite{shen2009predicate}. The Cloud Server matches each component of the index's ciphertext ($CT_{\mathcal{I}}$) with the user's trapdoor token ($TK_{\mathcal{Q}}$). The bilinearity of the IPE enables the two vectors to interact and produce the matched LSH bits count.

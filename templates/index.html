@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LSH Search Engine</title>
+
+  <!-- ============================================================
+       EXTERNAL DEPENDENCIES
+       - PapaParse  : CSV parsing
+       - React 18   : UI framework (CDN, no build step)
+       - react-window: virtualized list for large datasets
+  ============================================================ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <!-- react-window via IIFE shim included inline below -->
+
+  <!-- ============================================================
+       GOOGLE FONTS – Distinctive pairing:
+       "Space Mono" (monospace techy headers) +
+       "DM Sans"    (clean readable body)
+  ============================================================ -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <!-- ============================================================
+       GLOBAL STYLES
+       Design direction: "Terminal-Industrial" —
+       Deep navy/slate base, electric-cyan accent, mono headers,
+       tight grid lines, scan-line texture overlay.
+  ============================================================ -->
+  <style>
+    /* ── CSS Variables ─────────────────────────────────────────── */
+    :root {
+      --bg-primary: #0a0e1a;
+      --bg-secondary: #0f1629;
+      --bg-card: #121929;
+      --bg-input: #0d1220;
+      --border: #1e2d4a;
+      --border-light: #253550;
+      --accent: #00e5ff;
+      --accent-dim: #00aacc;
+      --accent-glow: rgba(0, 229, 255, 0.15);
+      --accent2: #ff6b35;
+      --text-primary: #e8edf8;
+      --text-secondary: #8fa3c8;
+      --text-muted: #4a6080;
+      --success: #00ff88;
+      --success-dim: #00cc66;
+      --danger: #ff4060;
+      --font-mono: 'Space Mono', monospace;
+      --font-body: 'DM Sans', sans-serif;
+      --radius: 4px;
+      --transition: 0.18s ease;
+    }
+
+    /* ── Reset & Base ───────────────────────────────────────────── */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.6;
+      /* scan-line texture */
+      background-image: repeating-linear-gradient(0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 229, 255, 0.012) 2px,
+          rgba(0, 229, 255, 0.012) 4px);
+      min-height: 100vh;
+    }
+
+    #root {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── App Shell ──────────────────────────────────────────────── */
+    .app-header {
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-secondary);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .app-logo {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--accent);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .app-logo span {
+      color: var(--text-muted);
+    }
+
+    /* ── Step Breadcrumb ────────────────────────────────────────── */
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+    }
+
+    .breadcrumb-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      transition: var(--transition);
+    }
+
+    .breadcrumb-step.active {
+      color: var(--accent);
+      border-color: var(--border);
+      background: var(--accent-glow);
+    }
+
+    .breadcrumb-step.done {
+      color: var(--success-dim);
+    }
+
+    .breadcrumb-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    .breadcrumb-sep {
+      color: var(--border-light);
+      padding: 0 4px;
+    }
+
+    /* ── Page Container ─────────────────────────────────────────── */
+    .page {
+      flex: 1;
+      padding: 40px 32px;
+      max-width: 960px;
+      width: 100%;
+      margin: 0 auto;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ── Section Heading ────────────────────────────────────────── */
+    .page-title {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+
+    .page-subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 36px;
+      max-width: 560px;
+    }
+
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Card / Panel ───────────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent-dim);
+      margin-bottom: 20px;
+    }
+
+    /* ── Slider Parameter Row ───────────────────────────────────── */
+    .param-row {
+      display: grid;
+      grid-template-columns: 200px 1fr 100px;
+      align-items: center;
+      gap: 20px;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .param-row:last-child {
+      border-bottom: none;
+    }
+
+    .param-label {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-primary);
+    }
+
+    .param-label small {
+      display: block;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-top: 2px;
+    }
+
+    /* Custom range slider */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: var(--border-light);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+      position: relative;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+      cursor: pointer;
+      transition: box-shadow var(--transition);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      box-shadow: 0 0 0 6px var(--accent-glow);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      cursor: pointer;
+    }
+
+    /* Numeric input beside slider */
+    .param-input {
+      background: var(--bg-input);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      padding: 6px 10px;
+      width: 100%;
+      text-align: center;
+      transition: border-color var(--transition);
+    }
+
+    .param-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+
+    /* ── Buttons ────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: var(--radius);
+      border: none;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg-primary);
+      font-weight: 700;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #33eeff;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-light);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      border-color: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid rgba(255, 64, 96, 0.3);
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: rgba(255, 64, 96, 0.1);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: var(--bg-primary);
+      font-weight: 700;
+    }
+
+    .btn-success:hover:not(:disabled) {
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-sm {
+      padding: 6px 14px;
+      font-size: 11px;
+    }
+
+    .action-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 28px;
+      gap: 12px;
+    }
+
+    /* ── Drop Zone ──────────────────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border-light);
+      border-radius: var(--radius);
+      padding: 48px 32px;
+      text-align: center;
+      transition: all var(--transition);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .drop-label {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-secondary);
+      letter-spacing: 0.1em;
+    }
+
+    .drop-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* ── Toolbar ────────────────────────────────────────────────── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-stat {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-secondary);
+    }
+
+    .toolbar-stat span {
+      color: var(--accent);
+      font-size: 13px;
+    }
+
+    .toolbar-spacer {
+      flex: 1;
+    }
+
+    /* ── Virtualized Grid ───────────────────────────────────────── */
+    .grid-wrapper {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .grid-header {
+      display: grid;
+      grid-template-columns: 40px 90px 160px 1fr;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .grid-header-cell {
+      padding: 10px 12px;
+      border-right: 1px solid var(--border);
+    }
+
+    .grid-header-cell:last-child {
+      border-right: none;
+    }
+
+    .grid-row {
+      display: grid;
+      grid-template-columns: 40px 90px 160px 1fr;
+      border-bottom: 1px solid var(--border);
+      transition: background var(--transition);
+    }
+
+    .grid-row:hover {
+      background: rgba(0, 229, 255, 0.03);
+    }
+
+    .grid-row.selected {
+      background: rgba(0, 229, 255, 0.06);
+    }
+
+    .grid-cell {
+      padding: 8px 12px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    .grid-cell:last-child {
+      border-right: none;
+    }
+
+    .cell-input {
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 13px;
+      width: 100%;
+      outline: none;
+    }
+
+    .cell-input:focus {
+      background: var(--bg-input);
+      border-radius: 2px;
+    }
+
+    .cell-input:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ── Keyword Chips / Tags ───────────────────────────────────── */
+    .chips-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 4px 0;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 2px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      background: rgba(30, 45, 74, 0.8);
+      border: 1px solid var(--border-light);
+      color: var(--text-secondary);
+      white-space: nowrap;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chip.match {
+      background: rgba(0, 229, 255, 0.12);
+      border-color: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    /* ── Progress Bar ───────────────────────────────────────────── */
+    .progress-wrap {
+      margin: 24px 0;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+
+    .progress-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      letter-spacing: 0.1em;
+    }
+
+    .progress-pct {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      color: var(--accent);
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+      border-radius: 3px;
+      transition: width 0.2s ease;
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .progress-stages {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .stage-pill {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+    }
+
+    .stage-pill.active {
+      border-color: var(--accent-dim);
+      color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .stage-pill.done {
+      border-color: var(--success-dim);
+      color: var(--success-dim);
+    }
+
+    /* ── Search Page ────────────────────────────────────────────── */
+    .search-bar-wrap {
+      display: flex;
+      gap: 0;
+      margin-bottom: 32px;
+    }
+
+    .search-input {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-right: none;
+      border-radius: var(--radius) 0 0 var(--radius);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 16px;
+      padding: 14px 20px;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .search-btn {
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 14px 28px;
+      font-size: 13px;
+    }
+
+    .results-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.12em;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .results-meta .count {
+      color: var(--accent);
+      font-size: 14px;
+    }
+
+    .results-meta .divider {
+      width: 1px;
+      height: 14px;
+      background: var(--border-light);
+    }
+
+    /* Result Cards */
+    .result-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--border-light);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 10px;
+      transition: border-color var(--transition), box-shadow var(--transition);
+      animation: fadeIn 0.2s ease;
+    }
+
+    .result-card:hover {
+      border-left-color: var(--accent);
+      box-shadow: 0 0 20px rgba(0, 229, 255, 0.05);
+    }
+
+    .result-rank {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.15em;
+      margin-bottom: 6px;
+    }
+
+    .result-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .result-id {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 60px 0;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+    }
+
+    /* ── Config Summary Badge ───────────────────────────────────── */
+    .config-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--text-muted);
+      background: var(--bg-secondary);
+    }
+
+    .config-badge b {
+      color: var(--text-secondary);
+    }
+
+    .config-strip {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    /* ── Checkbox ───────────────────────────────────────────────── */
+    input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+
+    /* ── Scrollbar ──────────────────────────────────────────────── */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-light);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* ── Responsive ─────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .page {
+        padding: 24px 16px;
+      }
+
+      .param-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .grid-header,
+      .grid-row {
+        grid-template-columns: 36px 70px 120px 1fr;
+      }
+
+      .app-header {
+        padding: 0 16px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <!-- ================================================================
+     INLINE REACT-WINDOW SHIM
+     react-window isn't on cdnjs; we implement a lightweight equivalent
+     FixedSizeList using native JS + React that matches the API surface
+     we need (height, itemCount, itemSize, children render-prop).
+================================================================ -->
+  <script>
+    // Minimal FixedSizeList implementation (virtualized scrolling)
+    // Renders only visible rows + a small overscan buffer.
+    window.ReactWindowShim = (function () {
+      const { useState, useRef, useCallback, useEffect, createElement: h } = React;
+
+      function FixedSizeList({ height, itemCount, itemSize, children, width = '100%', style = {} }) {
+        const containerRef = useRef(null);
+        const [scrollTop, setScrollTop] = useState(0);
+        const OVERSCAN = 5;
+
+        const onScroll = useCallback((e) => {
+          setScrollTop(e.currentTarget.scrollTop);
+        }, []);
+
+        const totalHeight = itemCount * itemSize;
+        const startIndex = Math.max(0, Math.floor(scrollTop / itemSize) - OVERSCAN);
+        const visibleCount = Math.ceil(height / itemSize);
+        const endIndex = Math.min(itemCount - 1, startIndex + visibleCount + OVERSCAN * 2);
+
+        const items = [];
+        for (let i = startIndex; i <= endIndex; i++) {
+          items.push(
+            h('div', {
+              key: i,
+              style: {
+                position: 'absolute',
+                top: i * itemSize,
+                height: itemSize,
+                left: 0,
+                right: 0,
+              }
+            }, children({ index: i, style: { height: itemSize } }))
+          );
+        }
+
+        return h('div', {
+          ref: containerRef,
+          onScroll,
+          style: { height, width, overflowY: 'auto', position: 'relative', ...style }
+        },
+          h('div', { style: { height: totalHeight, position: 'relative' } }, ...items)
+        );
+      }
+
+      return { FixedSizeList };
+    })();
+  </script>
+
+  <!-- ================================================================
+     MAIN APPLICATION SCRIPT
+     Architecture: Single-file React app with:
+       - GlobalState (Context API)
+       - Page routing (simple state machine: page 1 / 2 / 3)
+       - Page1Config, Page2Data, Page3Search components
+================================================================ -->
+  <script>
+    (function () {
+      'use strict';
+
+      // ─── React destructuring ──────────────────────────────────────────
+      const {
+        useState, useEffect, useRef, useCallback,
+        useContext, createContext, useReducer
+      } = React;
+      const h = React.createElement;
+      const { FixedSizeList } = window.ReactWindowShim;
+
+      // Add your Crow server URL here
+      const API_BASE = '/';
+
+      // ================================================================
+      // MODULE 1 — GLOBAL STATE (Context + Reducer)
+      // Holds: config params, dataset rows, index status, current page
+      // ================================================================
+
+      const AppContext = createContext(null);
+
+      const initialState = {
+        page: 1,
+        config: { L: 16, M: 256, W: 0.5 },    // LSH parameters
+        dataset: [],                             // Array of row objects
+        indexed: false,                          // Whether Build Index completed
+      };
+
+      function appReducer(state, action) {
+        switch (action.type) {
+          case 'SET_CONFIG':
+            return { ...state, config: { ...state.config, ...action.payload } };
+          case 'GO_PAGE':
+            return { ...state, page: action.payload };
+          case 'SET_DATASET':
+            return { ...state, dataset: action.payload };
+          case 'ADD_ROW': {
+            const newRow = { id: Date.now(), docId: '', docName: '', keywords: [], checked: false };
+            return { ...state, dataset: [...state.dataset, newRow] };
+          }
+          case 'UPDATE_ROW': {
+            const { index, field, value } = action.payload;
+            const updated = state.dataset.map((row, i) =>
+              i === index ? { ...row, [field]: value } : row
+            );
+            return { ...state, dataset: updated };
+          }
+          case 'TOGGLE_CHECK': {
+            const updated = state.dataset.map((row, i) =>
+              i === action.payload ? { ...row, checked: !row.checked } : row
+            );
+            return { ...state, dataset: updated };
+          }
+          case 'TOGGLE_ALL': {
+            const allChecked = state.dataset.every(r => r.checked);
+            const updated = state.dataset.map(r => ({ ...r, checked: !allChecked }));
+            return { ...state, dataset: updated };
+          }
+          case 'REMOVE_CHECKED':
+            return { ...state, dataset: state.dataset.filter(r => !r.checked) };
+          case 'SET_INDEXED':
+            return { ...state, indexed: action.payload };
+          case 'RESET':
+            return { ...initialState };
+          default:
+            return state;
+        }
+      }
+
+      function AppProvider({ children }) {
+        const [state, dispatch] = useReducer(appReducer, initialState);
+        return h(AppContext.Provider, { value: { state, dispatch } }, children);
+      }
+
+      function useApp() { return useContext(AppContext); }
+
+      // ================================================================
+      // MODULE 2 — SHARED UI COMPONENTS
+      // ================================================================
+
+      // ── App Header with breadcrumb navigation ─────────────────────
+      function AppHeader() {
+        const { state } = useApp();
+        const steps = [
+          { num: 1, label: 'CONFIGURE' },
+          { num: 2, label: 'LOAD DATA' },
+          { num: 3, label: 'SEARCH' },
+        ];
+        return h('header', { className: 'app-header' },
+          h('div', { className: 'app-logo' },
+            'LSH', h('span', null, '::'), 'SEARCH ENGINE'
+          ),
+          h('nav', { className: 'breadcrumb' },
+            steps.map((s, i) => [
+              i > 0 && h('span', { key: `sep-${i}`, className: 'breadcrumb-sep' }, '›'),
+              h('div', {
+                key: s.num,
+                className: `breadcrumb-step ${s.num === state.page ? 'active' : s.num < state.page ? 'done' : ''
+                  }`
+              },
+                h('span', { className: 'breadcrumb-dot' }),
+                `${s.num}. ${s.label}`
+              )
+            ])
+          )
+        );
+      }
+
+      // ── Parameter slider row ──────────────────────────────────────
+      function ParamRow({ label, desc, name, min, max, step, value, onChange }) {
+        function handleSlider(e) { onChange(parseFloat(e.target.value)); }
+        function handleInput(e) {
+          const v = parseFloat(e.target.value);
+          if (!isNaN(v)) onChange(Math.min(max, Math.max(min, v)));
+        }
+        return h('div', { className: 'param-row' },
+          h('div', { className: 'param-label' },
+            label,
+            h('small', null, desc)
+          ),
+          h('input', {
+            type: 'range', min, max, step,
+            value,
+            onChange: handleSlider,
+            style: { accentColor: 'var(--accent)' }
+          }),
+          h('input', {
+            type: 'number', min, max, step,
+            value,
+            onChange: handleInput,
+            className: 'param-input'
+          })
+        );
+      }
+
+      // ── Keyword chip ──────────────────────────────────────────────
+      function Chip({ label, highlight }) {
+        return h('span', { className: `chip ${highlight ? 'match' : ''}`, title: label }, label);
+      }
+
+      // ================================================================
+      // MODULE 3 — PAGE 1: CONFIGURATION
+      // Lets the user set L, M, W via sliders + number inputs,
+      // then saves them to global state and navigates to Page 2.
+      // ================================================================
+      function Page1Config() {
+        const { state, dispatch } = useApp();
+        const [local, setLocal] = useState({ ...state.config });
+
+        function setParam(key, val) {
+          setLocal(prev => ({ ...prev, [key]: val }));
+        }
+
+        // ── Sends LSH parameters to the Crow backend, then navigates ──
+        async function handleNext() {
+          try {
+            const res = await fetch('/api/config', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ L: local.L, M: local.M, W: local.W }),
+            });
+            if (!res.ok) {
+              const msg = await res.text().catch(() => res.statusText);
+              throw new Error(`Server error ${res.status}: ${msg}`);
+            }
+            // Commit config to global state only after the server confirms
+            dispatch({ type: 'SET_CONFIG', payload: local });
+            dispatch({ type: 'GO_PAGE', payload: 2 });
+          } catch (err) {
+            alert('Failed to initialise LSH on the server.\n\n' + err.message);
+          }
+        }
+
+        const params = [
+          {
+            label: 'L — LSH Functions',
+            desc: 'Number of hash tables / amplification factor',
+            name: 'L', min: 1, max: 256, step: 1,
+            value: local.L,
+          },
+          {
+            label: 'M — Security Parameter',
+            desc: 'Bit-width / collision resistance strength',
+            name: 'M', min: 1, max: 4096, step: 1,
+            value: local.M,
+          },
+          {
+            label: 'W — Bin Width',
+            desc: 'Hash bucket width (controls sensitivity)',
+            name: 'W', min: 0.001, max: 1, step: 0.001,
+            value: local.W,
+          },
+        ];
+
+        return h('div', { className: 'page' },
+          h('div', { className: 'page-title' }, '// CONFIGURATION'),
+          h('p', { className: 'page-subtitle' },
+            'Set the mathematical parameters that govern the Locality-Sensitive Hashing scheme. These control the trade-off between recall, precision, and computational cost.'
+          ),
+
+          h('div', { className: 'section-label' }, 'HASH PARAMETERS'),
+
+          h('div', { className: 'card' },
+            h('div', { className: 'card-title' }, 'LSH PARAMETER MATRIX'),
+            params.map(p =>
+              h(ParamRow, {
+                key: p.name,
+                ...p,
+                onChange: val => setParam(p.name, val)
+              })
+            )
+          ),
+
+          // Live parameter summary
+          h('div', { className: 'card' },
+            h('div', { className: 'card-title' }, 'CURRENT VALUES'),
+            h('div', { style: { display: 'flex', gap: 32, flexWrap: 'wrap' } },
+              h('div', null,
+                h('div', { style: { color: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' } }, 'L'),
+                h('div', { style: { fontSize: 32, fontFamily: 'var(--font-mono)', color: 'var(--accent)' } }, local.L)
+              ),
+              h('div', null,
+                h('div', { style: { color: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' } }, 'M'),
+                h('div', { style: { fontSize: 32, fontFamily: 'var(--font-mono)', color: 'var(--accent)' } }, local.M)
+              ),
+              h('div', null,
+                h('div', { style: { color: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' } }, 'W'),
+                h('div', { style: { fontSize: 32, fontFamily: 'var(--font-mono)', color: 'var(--accent)' } }, local.W.toFixed(3))
+              ),
+              h('div', { style: { flex: 1, alignSelf: 'center', color: 'var(--text-muted)', fontSize: 12, fontFamily: 'var(--font-mono)', lineHeight: 1.8 } },
+                `Expected buckets: ~${(local.L * local.M).toLocaleString()}`,
+                h('br'),
+                `Collision prob (est): ${(Math.exp(-local.L * 0.5)).toFixed(4)}`
+              )
+            )
+          ),
+
+          h('div', { className: 'action-row' },
+            h('button', { className: 'btn btn-primary', onClick: handleNext },
+              'NEXT: LOAD DATA', ' ›'
+            )
+          )
+        );
+      }
+
+      // ================================================================
+      // MODULE 4 — PAGE 2: DATA INGESTION & MANAGEMENT
+      // Handles CSV drop/parse, virtualized data grid, row management,
+      // and simulated Build Index progress bar.
+      // ================================================================
+
+      // Progress simulation stages
+      const INDEX_STAGES = [
+        'Tokenizing corpus',
+        'Building hash families',
+        'Projecting into buckets',
+        'Finalizing index',
+        'Verifying integrity',
+      ];
+
+      function Page2Data() {
+        const { state, dispatch } = useApp();
+        const { dataset, config } = state;
+
+        const [dragging, setDragging] = useState(false);
+        const [indexing, setIndexing] = useState(false);
+        const [progress, setProgress] = useState(0);
+        const [stageIdx, setStageIdx] = useState(0);
+        const [done, setDone] = useState(state.indexed);
+        const fileRef = useRef(null);
+        const intervalRef = useRef(null);
+
+        // ── CSV PARSING ──────────────────────────────────────────────
+        function parseCSV(file) {
+          Papa.parse(file, {
+            header: false,
+            skipEmptyLines: true,
+            complete: ({ data }) => {
+              // Expected columns: [docId, docName, keywords(semicolon-separated)]
+              const rows = data.map((cols, i) => ({
+                id: i,
+                docId: (cols[0] || '').trim(),
+                docName: (cols[1] || '').trim(),
+                keywords: (cols[2] || '').split(';').map(k => k.trim()).filter(Boolean),
+                checked: false,
+              }));
+              dispatch({ type: 'SET_DATASET', payload: rows });
+              dispatch({ type: 'SET_INDEXED', payload: false });
+              setDone(false);
+              setProgress(0);
+              setStageIdx(0);
+              setIndexing(false);
+            },
+            error: (err) => alert('CSV parse error: ' + err.message)
+          });
+        }
+
+        function onFileInput(e) {
+          const f = e.target.files[0];
+          if (f) parseCSV(f);
+        }
+
+        // ── DRAG & DROP ──────────────────────────────────────────────
+        function onDragOver(e) { e.preventDefault(); setDragging(true); }
+        function onDragLeave() { setDragging(false); }
+        function onDrop(e) {
+          e.preventDefault();
+          setDragging(false);
+          const f = e.dataTransfer.files[0];
+          if (f && f.name.endsWith('.csv')) parseCSV(f);
+          else alert('Please drop a .csv file.');
+        }
+
+        // ── ROW OPERATIONS ───────────────────────────────────────────
+        const checkedCount = dataset.filter(r => r.checked).length;
+        const allChecked = dataset.length > 0 && dataset.every(r => r.checked);
+
+        function addRow() { dispatch({ type: 'ADD_ROW' }); }
+        function removeSelected() { dispatch({ type: 'REMOVE_CHECKED' }); }
+        function toggleAll() { dispatch({ type: 'TOGGLE_ALL' }); }
+
+        function updateCell(index, field, value) {
+          if (indexing || done) return;
+          let parsed = value;
+          if (field === 'keywords') {
+            // Accept comma or semicolon separated input; store as array
+            parsed = value.split(/[;,]/).map(k => k.trim()).filter(Boolean);
+          }
+          dispatch({ type: 'UPDATE_ROW', payload: { index, field, value: parsed } });
+        }
+
+        // ── BUILD INDEX — sends corpus to Crow backend ────────────────
+        // The simulated setInterval is replaced by a real fetch request.
+        // Progress bar animates while the request is in-flight, then
+        // snaps to 100 % on success (or resets on failure).
+        async function buildIndex() {
+          if (dataset.length === 0) return alert('No data loaded.');
+
+          setIndexing(true);
+          setProgress(0);
+          setStageIdx(0);
+
+          // Animate the progress bar while waiting for the server.
+          // We advance through stages up to ~90 % so that the last 10 %
+          // only completes once we actually hear back.
+          let pct = 0;
+          intervalRef.current = setInterval(() => {
+            pct = Math.min(pct + Math.random() * 3 + 0.5, 90);
+            setProgress(pct);
+            setStageIdx(Math.min(
+              Math.floor((pct / 90) * (INDEX_STAGES.length - 1)),
+              INDEX_STAGES.length - 1
+            ));
+          }, 80);
+
+          // Build the payload — strip the internal UI-only `id` and
+          // `checked` fields; the server only needs docId/docName/keywords.
+          const payload = dataset.map(({ docId, docName, keywords }) => ({
+            docId, docName, keywords,
+          }));
+
+          try {
+            const res = await fetch('/api/index', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+
+            clearInterval(intervalRef.current);
+
+            if (!res.ok) {
+              const msg = await res.text().catch(() => res.statusText);
+              throw new Error(`Server error ${res.status}: ${msg}`);
+            }
+
+            // Success — complete the progress bar
+            setProgress(100);
+            setStageIdx(INDEX_STAGES.length);
+            setIndexing(false);
+            setDone(true);
+            dispatch({ type: 'SET_INDEXED', payload: true });
+
+          } catch (err) {
+            clearInterval(intervalRef.current);
+            setIndexing(false);
+            setProgress(0);
+            setStageIdx(0);
+            alert('Failed to build the index on the server.\n\n' + err.message);
+          }
+        }
+
+        useEffect(() => () => clearInterval(intervalRef.current), []);
+
+        // ── VIRTUALIZED ROW RENDERER ─────────────────────────────────
+        // Each row in the FixedSizeList gets this component
+        function RowItem({ index, style }) {
+          const row = dataset[index];
+          if (!row) return null;
+          return h('div', {
+            className: `grid-row ${row.checked ? 'selected' : ''}`,
+            style
+          },
+            // Checkbox cell
+            h('div', { className: 'grid-cell', style: { justifyContent: 'center' } },
+              h('input', {
+                type: 'checkbox',
+                checked: row.checked,
+                disabled: indexing || done,
+                onChange: () => dispatch({ type: 'TOGGLE_CHECK', payload: index })
+              })
+            ),
+            // Doc ID cell
+            h('div', { className: 'grid-cell' },
+              h('input', {
+                className: 'cell-input',
+                value: row.docId,
+                disabled: indexing || done,
+                onChange: e => updateCell(index, 'docId', e.target.value),
+                placeholder: 'doc-id',
+                style: { fontFamily: 'var(--font-mono)', fontSize: 12 }
+              })
+            ),
+            // Doc Name cell
+            h('div', { className: 'grid-cell' },
+              h('input', {
+                className: 'cell-input',
+                value: row.docName,
+                disabled: indexing || done,
+                onChange: e => updateCell(index, 'docName', e.target.value),
+                placeholder: 'Document name'
+              })
+            ),
+            // Keywords cell — display as chips
+            h('div', { className: 'grid-cell', style: { overflow: 'hidden' } },
+              done || indexing
+                // When locked: show chips
+                ? h('div', { className: 'chips-wrap' },
+                  row.keywords.slice(0, 6).map((kw, ki) =>
+                    h(Chip, { key: ki, label: kw, highlight: false })
+                  ),
+                  row.keywords.length > 6 && h('span', {
+                    className: 'chip',
+                    style: { color: 'var(--text-muted)' }
+                  }, `+${row.keywords.length - 6}`)
+                )
+                // When editable: raw text input (semicolon-separated)
+                : h('input', {
+                  className: 'cell-input',
+                  value: row.keywords.join('; '),
+                  onChange: e => updateCell(index, 'keywords', e.target.value),
+                  placeholder: 'keyword1; keyword2; ...'
+                })
+            )
+          );
+        }
+
+        // ── RENDER ───────────────────────────────────────────────────
+        return h('div', { className: 'page' },
+          h('div', { className: 'page-title' }, '// DATA INGESTION'),
+          h('p', { className: 'page-subtitle' },
+            'Upload your document corpus as a CSV file. Columns: document_id, document_name, keywords (semicolon-separated). Edit inline or add rows manually.'
+          ),
+
+          // Config summary strip
+          h('div', { className: 'config-strip' },
+            h('span', { className: 'config-badge' }, 'L=', h('b', null, config.L)),
+            h('span', { className: 'config-badge' }, 'M=', h('b', null, config.M)),
+            h('span', { className: 'config-badge' }, 'W=', h('b', null, config.W.toFixed(3))),
+          ),
+
+          // CSV Drop Zone (only shown when no data loaded or not done)
+          !done && h('div', { className: 'section-label' }, 'CSV UPLOAD'),
+          !done && h('div', {
+            className: `drop-zone ${dragging ? 'drag-over' : ''}`,
+            onDragOver, onDragLeave, onDrop,
+            style: { marginBottom: 24 }
+          },
+            h('input', {
+              ref: fileRef,
+              type: 'file',
+              accept: '.csv',
+              onChange: onFileInput
+            }),
+            h('span', { className: 'drop-icon' }, '📂'),
+            h('div', { className: 'drop-label' }, 'DRAG & DROP CSV FILE HERE'),
+            h('div', { className: 'drop-hint' }, 'or click to browse — .csv only')
+          ),
+
+          // Data Grid (shown once dataset has rows)
+          dataset.length > 0 && h('div', null,
+            h('div', { className: 'section-label' }, 'DATASET PREVIEW'),
+
+            // Toolbar
+            h('div', { className: 'toolbar' },
+              h('div', { className: 'toolbar-stat' },
+                'Total Entries: ', h('span', null, dataset.length.toLocaleString())
+              ),
+              checkedCount > 0 && h('div', { className: 'toolbar-stat' },
+                'Selected: ', h('span', null, checkedCount)
+              ),
+              h('div', { className: 'toolbar-spacer' }),
+              !done && !indexing && h('button', {
+                className: 'btn btn-secondary btn-sm',
+                onClick: addRow
+              }, '+ ADD ROW'),
+              !done && !indexing && checkedCount > 0 && h('button', {
+                className: 'btn btn-danger btn-sm',
+                onClick: removeSelected
+              }, `REMOVE ${checkedCount} SELECTED`)
+            ),
+
+            // Grid
+            h('div', { className: 'grid-wrapper' },
+              // Header
+              h('div', { className: 'grid-header' },
+                h('div', { className: 'grid-header-cell' },
+                  h('input', {
+                    type: 'checkbox',
+                    checked: allChecked,
+                    disabled: indexing || done,
+                    onChange: toggleAll,
+                    style: { accentColor: 'var(--accent)' }
+                  })
+                ),
+                h('div', { className: 'grid-header-cell' }, 'DOC ID'),
+                h('div', { className: 'grid-header-cell' }, 'DOCUMENT NAME'),
+                h('div', { className: 'grid-header-cell' }, 'KEYWORDS'),
+              ),
+              // Virtualized rows — renders only visible subset
+              h(FixedSizeList, {
+                height: Math.min(dataset.length * 44, 400),
+                itemCount: dataset.length,
+                itemSize: 44,
+              }, ({ index, style }) => h(RowItem, { key: dataset[index].id, index, style }))
+            ),
+
+            // ── Progress Bar ─────────────────────────────────────────
+            (indexing || done) && h('div', { className: 'progress-wrap' },
+              h('div', { className: 'progress-header' },
+                h('span', { className: 'progress-label' },
+                  done ? '✓ INDEX BUILT' : 'BUILDING INDEX...'
+                ),
+                h('span', { className: 'progress-pct' }, Math.round(progress) + '%')
+              ),
+              h('div', { className: 'progress-track' },
+                h('div', { className: 'progress-fill', style: { width: progress + '%' } })
+              ),
+              h('div', { className: 'progress-stages' },
+                INDEX_STAGES.map((s, i) =>
+                  h('span', {
+                    key: i,
+                    className: `stage-pill ${i < stageIdx ? 'done' : i === stageIdx && !done ? 'active' : ''
+                      }`
+                  }, (i < stageIdx || done ? '✓ ' : '') + s)
+                )
+              )
+            ),
+
+            // Action row
+            h('div', { className: 'action-row' },
+              h('button', {
+                className: 'btn btn-secondary',
+                onClick: () => dispatch({ type: 'GO_PAGE', payload: 1 })
+              }, '‹ BACK'),
+              !done && !indexing && h('button', {
+                className: 'btn btn-primary',
+                onClick: buildIndex,
+                disabled: dataset.length === 0
+              }, '⚡ BUILD INDEX'),
+              indexing && h('button', {
+                className: 'btn btn-primary',
+                disabled: true
+              }, 'INDEXING...'),
+              done && h('button', {
+                className: 'btn btn-success',
+                onClick: () => dispatch({ type: 'GO_PAGE', payload: 3 })
+              }, '→ GO TO SEARCH')
+            )
+          ),
+
+          // Empty state action (no dataset yet)
+          dataset.length === 0 && h('div', { className: 'action-row' },
+            h('button', {
+              className: 'btn btn-secondary',
+              onClick: () => dispatch({ type: 'GO_PAGE', payload: 1 })
+            }, '‹ BACK'),
+          )
+        );
+      }
+
+      // ================================================================
+      // MODULE 5 — PAGE 3: SEARCH INTERFACE
+      // Query input, real LSH lookup via /api/search, result cards with
+      // keyword highlighting, and "Start Over" to reset global state.
+      // ================================================================
+
+      const K = 10; // Top-k results constant
+
+      function Page3Search() {
+        const { state, dispatch } = useApp();
+        const { dataset, config } = state;
+
+        const [query, setQuery] = useState('');
+        const [results, setResults] = useState(null);
+        const [searched, setSearched] = useState(false);
+        const [searching, setSearching] = useState(false);
+
+        // ── Tokenise query string (kept for keyword highlighting) ─────
+        function tokenize(str) {
+          return str.toLowerCase().split(/[\s,;]+/).filter(Boolean);
+        }
+
+        // ── Build a lookup map from docId → dataset row ───────────────
+        // This lets us O(1)-hydrate the server's { docId, score } results
+        // with the local docName and keywords for rendering.
+        function buildDocMap() {
+          const map = new Map();
+          dataset.forEach(row => map.set(String(row.docId), row));
+          return map;
+        }
+
+        // ── Execute real LSH search via Crow backend ──────────────────
+        async function runSearch() {
+          if (!query.trim()) return;
+          const queryTokens = tokenize(query);
+
+          setSearching(true);
+
+          try {
+            const res = await fetch('/api/search', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              // Send both the raw string and the pre-tokenised array so the
+              // server can use whichever it prefers.
+              body: JSON.stringify({ query: query.trim(), tokens: queryTokens }),
+            });
+
+            if (!res.ok) {
+              const msg = await res.text().catch(() => res.statusText);
+              throw new Error(`Server error ${res.status}: ${msg}`);
+            }
+
+            // Expected response: [ { docId: string, score: number }, … ]
+            const serverResults = await res.json();
+
+            // Hydrate server results with local metadata (docName, keywords)
+            const docMap = buildDocMap();
+            const hydrated = serverResults
+              .slice(0, K)                          // respect top-k cap
+              .map(({ docId, score }) => {
+                const localRow = docMap.get(String(docId)) || {};
+                return {
+                  docId,
+                  docName: localRow.docName || '(untitled)',
+                  keywords: localRow.keywords || [],
+                  _score: typeof score === 'number' ? score : 0,
+                };
+              });
+
+            setResults(hydrated);
+            setSearched(true);
+
+          } catch (err) {
+            alert('Search request failed.\n\n' + err.message);
+          } finally {
+            setSearching(false);
+          }
+        }
+
+        function handleKey(e) {
+          if (e.key === 'Enter') runSearch();
+        }
+
+        function startOver() {
+          dispatch({ type: 'RESET' });
+        }
+
+        const queryTokens = tokenize(query);
+
+        // ── RENDER ───────────────────────────────────────────────
+        return h('div', { className: 'page' },
+          h('div', { className: 'page-title' }, '// SEARCH'),
+          h('p', { className: 'page-subtitle' },
+            `Query the indexed corpus using LSH-approximate nearest-neighbor lookup. Showing top k = ${K} matches.`
+          ),
+
+          // Config + dataset summary
+          h('div', { className: 'config-strip' },
+            h('span', { className: 'config-badge' }, 'L=', h('b', null, config.L)),
+            h('span', { className: 'config-badge' }, 'M=', h('b', null, config.M)),
+            h('span', { className: 'config-badge' }, 'W=', h('b', null, config.W.toFixed(3))),
+            h('span', { className: 'config-badge' }, 'Corpus: ', h('b', null, dataset.length.toLocaleString(), ' docs')),
+            h('span', { className: 'config-badge' }, 'k=', h('b', null, K)),
+          ),
+
+          // Search bar
+          h('div', { className: 'search-bar-wrap' },
+            h('input', {
+              className: 'search-input',
+              type: 'text',
+              placeholder: 'Enter query keywords (e.g. neural network classification)',
+              value: query,
+              onChange: e => setQuery(e.target.value),
+              onKeyDown: handleKey,
+              autoFocus: true,
+            }),
+            h('button', {
+              className: 'btn btn-primary search-btn',
+              onClick: runSearch,
+              disabled: searching,
+            }, searching ? 'SEARCHING...' : '⌕ SEARCH')
+          ),
+
+          // Results
+          searched && h('div', null,
+            // Meta
+            results && results.length > 0
+              ? h('div', { className: 'results-meta' },
+                'SHOWING',
+                h('span', { className: 'count' }, ` TOP ${results.length} `),
+                'MATCHES',
+                h('div', { className: 'divider' }),
+                `QUERY: "${query}"`
+              )
+              : h('div', { className: 'no-results' },
+                '[ NO MATCHES FOUND ]',
+                h('br'),
+                h('span', { style: { fontSize: 11 } }, 'Try broader or different keywords.')
+              ),
+
+            // Result cards
+            results && results.map((doc, rank) =>
+              h('div', { key: doc.docId != null ? String(doc.docId) : rank, className: 'result-card' },
+                h('div', { className: 'result-rank' },
+                  `RANK #${rank + 1}`,
+                  h('span', {
+                    style: {
+                      marginLeft: 12,
+                      color: 'var(--accent)',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 10
+                    }
+                  },
+                    `SCORE: ${(doc._score * 100).toFixed(1)}%`
+                  )
+                ),
+                h('div', { className: 'result-name' }, doc.docName || '(untitled)'),
+                h('div', { className: 'result-id' }, 'ID: ' + (doc.docId || '—')),
+                h('div', { className: 'chips-wrap' },
+                  doc.keywords.map((kw, ki) => {
+                    // Highlight if any query token matches this keyword
+                    const isMatch = queryTokens.some(t =>
+                      kw.toLowerCase().includes(t)
+                    );
+                    return h(Chip, { key: ki, label: kw, highlight: isMatch });
+                  })
+                )
+              )
+            )
+          ),
+
+          // Actions
+          h('div', { className: 'action-row', style: { marginTop: 40 } },
+            h('button', {
+              className: 'btn btn-secondary',
+              onClick: startOver
+            }, '↺ START OVER'),
+            h('button', {
+              className: 'btn btn-secondary',
+              onClick: () => dispatch({ type: 'GO_PAGE', payload: 2 })
+            }, '‹ BACK TO DATA')
+          )
+        );
+      }
+
+      // ================================================================
+      // MODULE 6 — APP ROOT
+      // Routes between pages based on global state.page value.
+      // ================================================================
+      function App() {
+        const { state } = useApp();
+        return h('div', { style: { display: 'flex', flexDirection: 'column', minHeight: '100vh' } },
+          h(AppHeader),
+          state.page === 1 && h(Page1Config),
+          state.page === 2 && h(Page2Data),
+          state.page === 3 && h(Page3Search),
+        );
+      }
+
+      // ── Mount ─────────────────────────────────────────────────────
+      const rootEl = document.getElementById('root');
+      const root = ReactDOM.createRoot(rootEl);
+      root.render(h(AppProvider, null, h(App)));
+
+    })();
+  </script>
+</body>
+
+</html>
