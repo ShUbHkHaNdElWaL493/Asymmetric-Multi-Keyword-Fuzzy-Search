@@ -35,7 +35,7 @@ class Bloom
 
         public:
         LocalitySensitiveHashFunction(size_t m, double w);
-        int hash(const Bloom::Keyword& keyword);
+        int hash(const Bloom::Keyword& keyword) const;
 
     };
 
@@ -46,7 +46,7 @@ class Bloom
     public:
 
     Bloom(size_t l, size_t m, double w);
-    std::vector<double> fit(const std::vector<std::string>& keywords);
+    std::vector<double> fit(const std::vector<std::string>& keywords) const;
 
 };
 
@@ -87,7 +87,7 @@ Bloom::LocalitySensitiveHashFunction::LocalitySensitiveHashFunction(size_t m, do
 
 }
 
-int Bloom::LocalitySensitiveHashFunction::hash(const Bloom::Keyword& keyword)
+int Bloom::LocalitySensitiveHashFunction::hash(const Bloom::Keyword& keyword) const
 {
 
     double dot_product = 0;
@@ -106,7 +106,7 @@ int Bloom::LocalitySensitiveHashFunction::hash(const Bloom::Keyword& keyword)
     
 }
 
-Bloom::Bloom(size_t l, size_t m, double w) : l(l), m(m), w(w)
+Bloom::Bloom(size_t l, size_t m, double w) : w(w), l(l), m(m)
 {
     this->hash_functions.reserve(l);
     for (size_t i = 0; i < l; i++)
@@ -115,7 +115,7 @@ Bloom::Bloom(size_t l, size_t m, double w) : l(l), m(m), w(w)
     }
 }
 
-std::vector<double> Bloom::fit(const std::vector<std::string>& keywords)
+std::vector<double> Bloom::fit(const std::vector<std::string>& keywords) const
 {
     std::vector<double> filter(this->m, 0.0);
     for (const std::string& keyword : keywords)

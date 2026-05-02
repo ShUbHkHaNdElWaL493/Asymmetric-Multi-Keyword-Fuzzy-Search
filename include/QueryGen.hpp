@@ -7,30 +7,29 @@
 #include "Bloom.hpp"
 #include "SecretKey.hpp"
 
-template <size_t l, size_t m, double w>
 class QueryGen
 {
 
-    Bloom<l, m, w> B;
-    SecretKey<m> SK;
+    private:
+    Bloom B;
+    SecretKey SK;
     std::random_device rd;
     std::mt19937 gen;
     std::normal_distribution<double> random_distribution;
 
     public:
-    QueryGen(Bloom<l, m, w> B, const SecretKey<m>& SK);
+    QueryGen(Bloom B, const SecretKey& SK);
     std::pair<std::vector<double>, std::vector<double>> encode(std::vector<std::string> keywords);
 
 };
 
-template <size_t l, size_t m, double w>
-QueryGen<l, m, w>::QueryGen(Bloom<l, m, w> B, const SecretKey<m>& SK) : B(B), SK(SK), rd(), gen(rd()), random_distribution(0.0, 1.0)
+QueryGen::QueryGen(Bloom B, const SecretKey& SK) : B(B), SK(SK), rd(), gen(rd()), random_distribution(0.0, 1.0)
 {}
 
-template <size_t l, size_t m, double w>
-std::pair<std::vector<double>, std::vector<double>> QueryGen<l, m, w>::encode(std::vector<std::string> keywords)
+std::pair<std::vector<double>, std::vector<double>> QueryGen::encode(std::vector<std::string> keywords)
 {
 
+    const size_t m = this->SK.getSecurityParameter();
     std::vector<double> Q = this->B.fit(keywords);
     std::vector<double> Q1(m, 0.0);
     std::vector<double> Q2(m, 0.0);

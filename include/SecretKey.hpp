@@ -24,7 +24,7 @@ class SecretKey
         std::vector<std::vector<double>> getM1T() const;
         std::vector<std::vector<double>> getM2T() const;
         std::vector<bool> getS() const;
-        size_t getSecurityParameter() const;
+        const size_t& getSecurityParameter() const;
         void setM1(const std::vector<std::vector<double>>& M1);
         void setM2(const std::vector<std::vector<double>>& M2);
         void setS(const std::vector<bool>& S);
@@ -41,7 +41,7 @@ std::vector<std::vector<double>> SecretKey::getM2I() const { return this->M2I; }
 std::vector<std::vector<double>> SecretKey::getM1T() const { return this->M1T; }
 std::vector<std::vector<double>> SecretKey::getM2T() const { return this->M2T; }
 std::vector<bool> SecretKey::getS() const { return this->S; }
-size_t SecretKey::getSecurityParameter() const { return this->m; }
+const size_t& SecretKey::getSecurityParameter() const { return this->m; }
 
 void SecretKey::setM1(const std::vector<std::vector<double>>& M1)
 {

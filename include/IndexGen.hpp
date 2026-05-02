@@ -29,8 +29,7 @@ IndexGen::IndexGen(Bloom B, const SecretKey& SK) : B(B), SK(SK), rd(), gen(rd())
 std::pair<std::vector<double>, std::vector<double>> IndexGen::encode(std::vector<std::string> keywords)
 {
 
-    size_t m = this->SK.getSecurityParameter();
-
+    const size_t m = this->SK.getSecurityParameter();
     std::vector<double> I = this->B.fit(keywords);
     std::vector<double> I1(m, 0.0);
     std::vector<double> I2(m, 0.0);
