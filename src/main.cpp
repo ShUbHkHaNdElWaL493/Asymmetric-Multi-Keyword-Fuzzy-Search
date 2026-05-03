@@ -5,21 +5,9 @@
 
 #define K 10
 #include "crow.h"
-#include <iostream>
 #include <sstream>
 #include <string>
 #include "Scheme.hpp"
-
-// ---------------------------------------------------------------------------
-// CORS helper — lets the browser hit the API even when the frontend is
-// opened directly from disk (file://) or a different dev port.
-// ---------------------------------------------------------------------------
-static void add_cors(crow::response& res)
-{
-    res.add_header("Access-Control-Allow-Origin",  "*");
-    res.add_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.add_header("Access-Control-Allow-Headers", "Content-Type");
-}
 
 int main()
 {
@@ -39,39 +27,6 @@ int main()
             res.end();
         });
 
-        // ── OPTIONS preflight handlers ───────────────────────────────────────
-        CROW_ROUTE(app, "/api/config").methods(crow::HTTPMethod::OPTIONS)
-        ([](const crow::request& /*req*/)
-        {
-            crow::response res(204);
-            add_cors(res);
-            return res;
-        });
-
-        CROW_ROUTE(app, "/api/build").methods(crow::HTTPMethod::OPTIONS)
-        ([](const crow::request& /*req*/)
-        {
-            crow::response res(204);
-            add_cors(res);
-            return res;
-        });
-
-        CROW_ROUTE(app, "/api/reset").methods(crow::HTTPMethod::OPTIONS)
-        ([](const crow::request& /*req*/)
-        {
-            crow::response res(204);
-            add_cors(res);
-            return res;
-        });
-
-        CROW_ROUTE(app, "/api/search").methods(crow::HTTPMethod::OPTIONS)
-        ([](const crow::request& /*req*/)
-        {
-            crow::response res(204);
-            add_cors(res);
-            return res;
-        });
-
         // ── POST /api/config ─────────────────────────────────────────────────
         CROW_ROUTE(app, "/api/config").methods(crow::HTTPMethod::POST)
         ([&S, &configured](const crow::request& req)
@@ -81,15 +36,12 @@ int main()
             if (!body)
             {
                 crow::response res(400, "Invalid JSON");
-                add_cors(res);
                 return res;
             }
 
             const size_t L = static_cast<size_t>(body["L"].i());
             const size_t M = static_cast<size_t>(body["M"].i());
             const double W = body["W"].d();
-
-            std::cout << "[config] L=" << (int)L << " M=" << (int)M << " W=" << W << "\n";
 
             S.reset();
             S = std::make_unique<Scheme>(L, M, W, K); // Configure Scheme state
@@ -98,7 +50,6 @@ int main()
             crow::json::wvalue resp;
             resp["status"] = "ok";
             crow::response res(resp);
-            add_cors(res);
             return res;
 
         });
@@ -110,7 +61,6 @@ int main()
             if (!configured)
             {
                 crow::response res(409, "Call /api/config before /api/build");
-                add_cors(res);
                 return res;
             }
 
@@ -118,7 +68,6 @@ int main()
             if (!body || body.t() != crow::json::type::List)
             {
                 crow::response res(400, "Expected a JSON array of document objects");
-                add_cors(res);
                 return res;
             }
 
@@ -136,12 +85,9 @@ int main()
                 S->addEntry(document_id, document_name, document_keywords);
             }
 
-            std::cout << "[index] Indexed " << body.size() << " document(s).\n";
-
             crow::json::wvalue resp;
             resp["status"] = "indexed";
             crow::response res(resp);
-            add_cors(res);
             return res;
         });
 
@@ -152,7 +98,6 @@ int main()
             if (!configured)
             {
                 crow::response res(409, "Call /api/config before /api/reset");
-                add_cors(res);
                 return res;
             }
 
@@ -160,18 +105,14 @@ int main()
             if (!body || body.t() != crow::json::type::Number)
             {
                 crow::response res(400, "Expected a JSON array of index size");
-                add_cors(res);
                 return res;
             }
 
             S->resetIndex();
 
-            std::cout << "[index] Removed " << body << " document(s) from index.\n";
-
             crow::json::wvalue resp;
             resp["status"] = "ok";
             crow::response res(resp);
-            add_cors(res);
             return res;
         });
 
@@ -182,7 +123,6 @@ int main()
             if (!configured)
             {
                 crow::response res(409, "Call /api/config before /api/search");
-                add_cors(res);
                 return res;
             }
 
@@ -190,7 +130,6 @@ int main()
             if (!body)
             {
                 crow::response res(400, "Invalid JSON");
-                add_cors(res);
                 return res;
             }
 
@@ -214,16 +153,8 @@ int main()
             if (query_keywords.empty())
             {
                 crow::response res(400, "No query keywords provided");
-                add_cors(res);
                 return res;
             }
-
-            std::cout << "[search] keywords= ";
-            for (auto& t : query_keywords)
-            {
-                std::cout << t << " ";
-            }
-            std::cout << "\n";
 
             std::vector<std::pair<std::pair<std::string, std::string>, double>> matches = S->match(query_keywords);
             crow::json::wvalue::list result_list;
@@ -238,17 +169,14 @@ int main()
 
             crow::json::wvalue response_json(result_list);
             crow::response res(response_json);
-            add_cors(res);
             return res;
         });
 
-        std::cout << "App listening on http://localhost:3000\n";
         app.port(3000).multithreaded().run();
 
     }
     catch (const std::exception& e)
     {
-        std::cerr << "[fatal] " << e.what() << '\n';
         return 1;
     }
 
