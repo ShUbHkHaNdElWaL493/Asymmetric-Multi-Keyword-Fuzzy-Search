@@ -976,7 +976,7 @@
         const { state } = useApp();
         const steps = [
           { num: 1, label: 'CONFIGURE' },
-          { num: 2, label: 'LOAD DATA' },
+          { num: 2, label: 'INDEX' },
           { num: 3, label: 'SEARCH' },
         ];
         return h('header', { className: 'app-header' },
@@ -1598,7 +1598,7 @@
 
         // ── RENDER ───────────────────────────────────────────────
         return h('div', { className: 'page' },
-          h('div', { className: 'page-title' }, '// SEARCH'),
+          h('div', { className: 'page-title' }, '// SEARCHING'),
           h('p', { className: 'page-subtitle' },
             `Query the indexed documents using Asymmetric Multi-Keyword Fuzzy Search.`
           ),
