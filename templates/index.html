@@ -889,7 +889,7 @@
        - GlobalState (Context API)
        - Page routing (simple state machine: page 1 / 2 / 3)
        - Page1Config, Page2Data, Page3Search components
-================================================================ -->
+  ================================================================ -->
   <script>
     (function () {
       'use strict';
@@ -1379,8 +1379,8 @@
             h('div', { className: 'drop-hint' }, 'or click to browse — .csv only')
           ),
 
-          // Data Grid (shown once dataset has rows)
-          dataset.length > 0 && h('div', null,
+          // Data Grid (always shown)
+          h('div', null,
             h('div', { className: 'section-label' }, 'DATASET PREVIEW'),
 
             // Toolbar
@@ -1451,10 +1451,6 @@
 
             // Action row
             h('div', { className: 'action-row' },
-              h('button', {
-                className: 'btn btn-secondary',
-                onClick: () => dispatch({ type: 'GO_PAGE', payload: 1 })
-              }, '‹ BACK'),
               !done && !indexing && h('button', {
                 className: 'btn btn-primary',
                 onClick: buildIndex,
@@ -1469,14 +1465,6 @@
                 onClick: () => dispatch({ type: 'GO_PAGE', payload: 3 })
               }, '→ GO TO SEARCH')
             )
-          ),
-
-          // Empty state action (no dataset yet)
-          dataset.length === 0 && h('div', { className: 'action-row' },
-            h('button', {
-              className: 'btn btn-secondary',
-              onClick: () => dispatch({ type: 'GO_PAGE', payload: 1 })
-            }, '‹ BACK'),
           )
         );
       }
@@ -1562,10 +1550,6 @@
 
         function handleKey(e) {
           if (e.key === 'Enter') runSearch();
-        }
-
-        function startOver() {
-          dispatch({ type: 'RESET' });
         }
 
         const queryTokens = tokenize(query);
@@ -1654,10 +1638,6 @@
 
           // Actions
           h('div', { className: 'action-row', style: { marginTop: 40 } },
-            h('button', {
-              className: 'btn btn-secondary',
-              onClick: startOver
-            }, '↺ START OVER'),
             h('button', {
               className: 'btn btn-secondary',
               onClick: () => dispatch({ type: 'GO_PAGE', payload: 2 })
