@@ -1284,69 +1284,6 @@
 
         useEffect(() => () => clearInterval(intervalRef.current), []);
 
-        // ── VIRTUALIZED ROW RENDERER ─────────────────────────────────
-        // Each row in the FixedSizeList gets this component
-        function RowItem({ index, style }) {
-          const row = dataset[index];
-          if (!row) return null;
-          return h('div', {
-            className: `grid-row ${row.checked ? 'selected' : ''}`,
-            style
-          },
-            // Checkbox cell
-            h('div', { className: 'grid-cell', style: { justifyContent: 'center' } },
-              h('input', {
-                type: 'checkbox',
-                checked: row.checked,
-                disabled: indexing || done,
-                onChange: () => dispatch({ type: 'TOGGLE_CHECK', payload: index })
-              })
-            ),
-            // Doc ID cell
-            h('div', { className: 'grid-cell' },
-              h('input', {
-                className: 'cell-input',
-                value: row.docId,
-                disabled: indexing || done,
-                onChange: e => updateCell(index, 'docId', e.target.value),
-                placeholder: 'doc-id',
-                style: { fontFamily: 'var(--font-mono)', fontSize: 12 }
-              })
-            ),
-            // Doc Name cell
-            h('div', { className: 'grid-cell' },
-              h('input', {
-                className: 'cell-input',
-                value: row.docName,
-                disabled: indexing || done,
-                onChange: e => updateCell(index, 'docName', e.target.value),
-                placeholder: 'Document name'
-              })
-            ),
-            // Keywords cell — display as chips
-            h('div', { className: 'grid-cell', style: { overflow: 'hidden' } },
-              done || indexing
-                // When locked: show chips
-                ? h('div', { className: 'chips-wrap' },
-                  row.keywords.slice(0, 6).map((kw, ki) =>
-                    h(Chip, { key: ki, label: kw, highlight: false })
-                  ),
-                  row.keywords.length > 6 && h('span', {
-                    className: 'chip',
-                    style: { color: 'var(--text-muted)' }
-                  }, `+${row.keywords.length - 6}`)
-                )
-                // When editable: raw text input (semicolon-separated)
-                : h('input', {
-                  className: 'cell-input',
-                  value: row.keywords.join('; '),
-                  onChange: e => updateCell(index, 'keywords', e.target.value),
-                  placeholder: 'keyword1; keyword2; ...'
-                })
-            )
-          );
-        }
-
         // ── RENDER ───────────────────────────────────────────────────
         return h('div', { className: 'page' },
           h('div', { className: 'page-title' }, '// DATA INGESTION'),
@@ -1424,7 +1361,67 @@
                 height: Math.min(dataset.length * 44, 400),
                 itemCount: dataset.length,
                 itemSize: 44,
-              }, ({ index, style }) => h(RowItem, { key: dataset[index].id, index, style }))
+              }, ({ index, style }) => {
+                // Inlining the logic here prevents React from unmounting the inputs
+                const row = dataset[index];
+                if (!row) return null;
+
+                return h('div', {
+                  key: row.id, // Added key here for proper DOM reconciliation
+                  className: `grid-row ${row.checked ? 'selected' : ''}`,
+                  style
+                },
+                  // Checkbox cell
+                  h('div', { className: 'grid-cell', style: { justifyContent: 'center' } },
+                    h('input', {
+                      type: 'checkbox',
+                      checked: row.checked,
+                      disabled: indexing || done,
+                      onChange: () => dispatch({ type: 'TOGGLE_CHECK', payload: index })
+                    })
+                  ),
+                  // Doc ID cell
+                  h('div', { className: 'grid-cell' },
+                    h('input', {
+                      className: 'cell-input',
+                      value: row.docId,
+                      disabled: indexing || done,
+                      onChange: e => updateCell(index, 'docId', e.target.value),
+                      placeholder: 'doc-id',
+                      style: { fontFamily: 'var(--font-mono)', fontSize: 12 }
+                    })
+                  ),
+                  // Doc Name cell
+                  h('div', { className: 'grid-cell' },
+                    h('input', {
+                      className: 'cell-input',
+                      value: row.docName,
+                      disabled: indexing || done,
+                      onChange: e => updateCell(index, 'docName', e.target.value),
+                      placeholder: 'Document name'
+                    })
+                  ),
+                  // Keywords cell — display as chips or input
+                  h('div', { className: 'grid-cell', style: { overflow: 'hidden' } },
+                    done || indexing
+                      ? h('div', { className: 'chips-wrap' },
+                        row.keywords.slice(0, 6).map((kw, ki) =>
+                          h(Chip, { key: ki, label: kw, highlight: false })
+                        ),
+                        row.keywords.length > 6 && h('span', {
+                          className: 'chip',
+                          style: { color: 'var(--text-muted)' }
+                        }, `+${row.keywords.length - 6}`)
+                      )
+                      : h('input', {
+                        className: 'cell-input',
+                        value: row.keywords.join('; '),
+                        onChange: e => updateCell(index, 'keywords', e.target.value),
+                        placeholder: 'keyword1; keyword2; ...'
+                      })
+                  )
+                );
+              })
             ),
 
             // ── Progress Bar ─────────────────────────────────────────
