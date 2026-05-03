@@ -48,7 +48,15 @@ int main()
             return res;
         });
 
-        CROW_ROUTE(app, "/api/index").methods(crow::HTTPMethod::OPTIONS)
+        CROW_ROUTE(app, "/api/build").methods(crow::HTTPMethod::OPTIONS)
+        ([](const crow::request& /*req*/)
+        {
+            crow::response res(204);
+            add_cors(res);
+            return res;
+        });
+
+        CROW_ROUTE(app, "/api/reset").methods(crow::HTTPMethod::OPTIONS)
         ([](const crow::request& /*req*/)
         {
             crow::response res(204);
@@ -83,6 +91,7 @@ int main()
 
             std::cout << "[config] L=" << (int)L << " M=" << (int)M << " W=" << W << "\n";
 
+            S.reset();
             S = std::make_unique<Scheme>(L, M, W, K); // Configure Scheme state
             configured = true;
 
@@ -94,13 +103,13 @@ int main()
 
         });
 
-        // ── POST /api/index ──────────────────────────────────────────────────
-        CROW_ROUTE(app, "/api/index").methods(crow::HTTPMethod::POST)
+        // ── POST /api/build ──────────────────────────────────────────────────
+        CROW_ROUTE(app, "/api/build").methods(crow::HTTPMethod::POST)
         ([&S, &configured](const crow::request& req)
         {
             if (!configured)
             {
-                crow::response res(409, "Call /api/config before /api/index");
+                crow::response res(409, "Call /api/config before /api/build");
                 add_cors(res);
                 return res;
             }
@@ -127,10 +136,40 @@ int main()
                 S->addEntry(document_id, document_name, document_keywords);
             }
 
-            std::cout << "[index] Indexed " << body.size() << " documents.\n";
+            std::cout << "[index] Indexed " << body.size() << " document(s).\n";
 
             crow::json::wvalue resp;
             resp["status"] = "indexed";
+            crow::response res(resp);
+            add_cors(res);
+            return res;
+        });
+
+        // ── POST /api/reset ──────────────────────────────────────────────────
+        CROW_ROUTE(app, "/api/reset").methods(crow::HTTPMethod::POST)
+        ([&S, &configured](const crow::request& req)
+        {
+            if (!configured)
+            {
+                crow::response res(409, "Call /api/config before /api/reset");
+                add_cors(res);
+                return res;
+            }
+
+            auto body = crow::json::load(req.body);
+            if (!body || body.t() != crow::json::type::Number)
+            {
+                crow::response res(400, "Expected a JSON array of index size");
+                add_cors(res);
+                return res;
+            }
+
+            S->resetIndex();
+
+            std::cout << "[index] Removed " << body << " document(s) from index.\n";
+
+            crow::json::wvalue resp;
+            resp["status"] = "ok";
             crow::response res(resp);
             add_cors(res);
             return res;

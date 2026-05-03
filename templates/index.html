@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LSH Search Engine</title>
+  <title>Search Scheme</title>
 
   <!-- ============================================================
        EXTERNAL DEPENDENCIES
@@ -981,7 +981,7 @@
         ];
         return h('header', { className: 'app-header' },
           h('div', { className: 'app-logo' },
-            'LSH', h('span', null, '::'), 'SEARCH ENGINE'
+            'Asymmetric Multi-Keyword Fuzzy Search'
           ),
           h('nav', { className: 'breadcrumb' },
             steps.map((s, i) => [
@@ -1039,6 +1039,7 @@
       function Page1Config() {
         const { state, dispatch } = useApp();
         const [local, setLocal] = useState({ ...state.config });
+        const [loading, setLoading] = useState(false);
 
         function setParam(key, val) {
           setLocal(prev => ({ ...prev, [key]: val }));
@@ -1046,6 +1047,8 @@
 
         // ── Sends LSH parameters to the Crow backend, then navigates ──
         async function handleNext() {
+          setLoading(true); // Start loading spinner/state
+
           try {
             const res = await fetch('/api/config', {
               method: 'POST',
@@ -1060,26 +1063,28 @@
             dispatch({ type: 'SET_CONFIG', payload: local });
             dispatch({ type: 'GO_PAGE', payload: 2 });
           } catch (err) {
-            alert('Failed to initialise LSH on the server.\n\n' + err.message);
+            alert('Failed to initialise search scheme on the server.\n\n' + err.message);
+          } finally {
+            setLoading(false); // Stop loading regardless of success/error
           }
         }
 
         const params = [
           {
             label: 'L — LSH Functions',
-            desc: 'Number of hash tables / amplification factor',
+            desc: 'Number of hash functions',
             name: 'L', min: 1, max: 256, step: 1,
             value: local.L,
           },
           {
             label: 'M — Security Parameter',
-            desc: 'Bit-width / collision resistance strength',
+            desc: 'Bit-array length',
             name: 'M', min: 1, max: 4096, step: 1,
             value: local.M,
           },
           {
             label: 'W — Bin Width',
-            desc: 'Hash bucket width (controls sensitivity)',
+            desc: 'Hash bucket width',
             name: 'W', min: 0.001, max: 1, step: 0.001,
             value: local.W,
           },
@@ -1088,13 +1093,13 @@
         return h('div', { className: 'page' },
           h('div', { className: 'page-title' }, '// CONFIGURATION'),
           h('p', { className: 'page-subtitle' },
-            'Set the mathematical parameters that govern the Locality-Sensitive Hashing scheme. These control the trade-off between recall, precision, and computational cost.'
+            'Set the mathematical parameters that govern the search scheme. These control the trade-off between recall, precision, and computational cost.'
           ),
 
-          h('div', { className: 'section-label' }, 'HASH PARAMETERS'),
+          h('div', { className: 'section-label' }, 'PARAMETERS'),
 
           h('div', { className: 'card' },
-            h('div', { className: 'card-title' }, 'LSH PARAMETER MATRIX'),
+            h('div', { className: 'card-title' }, 'PARAMETER MATRIX'),
             params.map(p =>
               h(ParamRow, {
                 key: p.name,
@@ -1129,8 +1134,13 @@
           ),
 
           h('div', { className: 'action-row' },
-            h('button', { className: 'btn btn-primary', onClick: handleNext },
-              'NEXT: LOAD DATA', ' ›'
+            h('button', {
+              className: 'btn btn-primary',
+              onClick: handleNext,
+              disabled: loading // Disable button while loading
+            },
+              // Swap the text based on the loading state
+              loading ? 'CONFIGURING... ›' : 'CONFIGURE ›'
             )
           )
         );
@@ -1157,8 +1167,8 @@
 
         const [dragging, setDragging] = useState(false);
         const [indexing, setIndexing] = useState(false);
-        const [progress, setProgress] = useState(0);
-        const [stageIdx, setStageIdx] = useState(0);
+        const [progress, setProgress] = useState(state.indexed ? 100 : 0);
+        const [stageIdx, setStageIdx] = useState(state.indexed ? INDEX_STAGES.length : 0);
         const [done, setDone] = useState(state.indexed);
         const fileRef = useRef(null);
         const intervalRef = useRef(null);
@@ -1253,7 +1263,7 @@
           }));
 
           try {
-            const res = await fetch('/api/index', {
+            const res = await fetch('/api/build', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
@@ -1284,18 +1294,48 @@
 
         useEffect(() => () => clearInterval(intervalRef.current), []);
 
+        // ── RESET INDEX ──────────────────────────────────────────────
+        // Clears the built status, unlocking the data grid for editing
+        async function resetIndex() {
+
+          try {
+            const res = await fetch('/api/reset', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: dataset.length
+            });
+
+            clearInterval(intervalRef.current);
+
+            if (!res.ok) {
+              const msg = await res.text().catch(() => res.statusText);
+              throw new Error(`Server error ${res.status}: ${msg}`);
+            }
+
+          } catch (err) {
+            clearInterval(intervalRef.current);
+            alert('Failed to build the index on the server.\n\n' + err.message);
+          } finally {
+            setDone(false);
+            setProgress(0);
+            setStageIdx(0);
+            dispatch({ type: 'SET_INDEXED', payload: false });
+          }
+
+        }
+
         // ── RENDER ───────────────────────────────────────────────────
         return h('div', { className: 'page' },
-          h('div', { className: 'page-title' }, '// DATA INGESTION'),
+          h('div', { className: 'page-title' }, '// INDEXING'),
           h('p', { className: 'page-subtitle' },
-            'Upload your document corpus as a CSV file. Columns: document_id, document_name, keywords (semicolon-separated). Edit inline or add rows manually.'
+            'Upload your document keywords as a CSV file or add documents manually.'
           ),
 
           // Config summary strip
           h('div', { className: 'config-strip' },
-            h('span', { className: 'config-badge' }, 'L=', h('b', null, config.L)),
-            h('span', { className: 'config-badge' }, 'M=', h('b', null, config.M)),
-            h('span', { className: 'config-badge' }, 'W=', h('b', null, config.W.toFixed(3))),
+            h('span', { className: 'config-badge' }, 'L:', h('b', null, config.L)),
+            h('span', { className: 'config-badge' }, 'M:', h('b', null, config.M)),
+            h('span', { className: 'config-badge' }, 'W:', h('b', null, config.W.toFixed(3))),
           ),
 
           // CSV Drop Zone (only shown when no data loaded or not done)
@@ -1312,8 +1352,8 @@
               onChange: onFileInput
             }),
             h('span', { className: 'drop-icon' }, '📂'),
-            h('div', { className: 'drop-label' }, 'DRAG & DROP CSV FILE HERE'),
-            h('div', { className: 'drop-hint' }, 'or click to browse — .csv only')
+            h('div', { className: 'drop-label' }, 'DRAG & DROP DOCUMENT KEYWORDS HERE'),
+            h('div', { className: 'drop-hint' }, 'or click to browse. [.csv]')
           ),
 
           // Data Grid (always shown)
@@ -1452,15 +1492,20 @@
                 className: 'btn btn-primary',
                 onClick: buildIndex,
                 disabled: dataset.length === 0
-              }, '⚡ BUILD INDEX'),
+              }, 'BUILD INDEX'),
               indexing && h('button', {
                 className: 'btn btn-primary',
                 disabled: true
               }, 'INDEXING...'),
               done && h('button', {
+                className: 'btn btn-danger',
+                style: { marginRight: 'auto' },
+                onClick: resetIndex
+              }, '↺ RESET'),
+              done && h('button', {
                 className: 'btn btn-success',
                 onClick: () => dispatch({ type: 'GO_PAGE', payload: 3 })
-              }, '→ GO TO SEARCH')
+              }, 'SEARCH ›')
             )
           )
         );
@@ -1555,16 +1600,15 @@
         return h('div', { className: 'page' },
           h('div', { className: 'page-title' }, '// SEARCH'),
           h('p', { className: 'page-subtitle' },
-            `Query the indexed corpus using LSH-approximate nearest-neighbor lookup. Showing top k = ${K} matches.`
+            `Query the indexed documents using Asymmetric Multi-Keyword Fuzzy Search.`
           ),
 
           // Config + dataset summary
           h('div', { className: 'config-strip' },
-            h('span', { className: 'config-badge' }, 'L=', h('b', null, config.L)),
-            h('span', { className: 'config-badge' }, 'M=', h('b', null, config.M)),
-            h('span', { className: 'config-badge' }, 'W=', h('b', null, config.W.toFixed(3))),
-            h('span', { className: 'config-badge' }, 'Corpus: ', h('b', null, dataset.length.toLocaleString(), ' docs')),
-            h('span', { className: 'config-badge' }, 'k=', h('b', null, K)),
+            h('span', { className: 'config-badge' }, 'L:', h('b', null, config.L)),
+            h('span', { className: 'config-badge' }, 'M:', h('b', null, config.M)),
+            h('span', { className: 'config-badge' }, 'W:', h('b', null, config.W.toFixed(3))),
+            h('span', { className: 'config-badge' }, 'Index Size: ', h('b', null, dataset.length.toLocaleString(), ' document(s)')),
           ),
 
           // Search bar
@@ -1638,7 +1682,7 @@
             h('button', {
               className: 'btn btn-secondary',
               onClick: () => dispatch({ type: 'GO_PAGE', payload: 2 })
-            }, '‹ BACK TO DATA')
+            }, '‹ INDEX')
           )
         );
       }
