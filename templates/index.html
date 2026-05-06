@@ -914,9 +914,9 @@
 
       const initialState = {
         page: 1,
-        config: { L: 16, M: 256, W: 0.5 },    // LSH parameters
-        dataset: [],                             // Array of row objects
-        indexed: false,                          // Whether Build Index completed
+        config: { L: 16, M: 256 },    // Scheme parameters
+        dataset: [],                  // Array of row objects
+        indexed: false,               // Whether Build Index completed
       };
 
       function appReducer(state, action) {
@@ -1033,7 +1033,7 @@
 
       // ================================================================
       // MODULE 3 — PAGE 1: CONFIGURATION
-      // Lets the user set L, M, W via sliders + number inputs,
+      // Lets the user set L, M via sliders + number inputs,
       // then saves them to global state and navigates to Page 2.
       // ================================================================
       function Page1Config() {
@@ -1053,7 +1053,7 @@
             const res = await fetch('/api/config', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ L: local.L, M: local.M, W: local.W }),
+              body: JSON.stringify({ L: local.L, M: local.M }),
             });
             if (!res.ok) {
               const msg = await res.text().catch(() => res.statusText);
@@ -1081,12 +1081,6 @@
             desc: 'Bit-array length',
             name: 'M', min: 1, max: 4096, step: 1,
             value: local.M,
-          },
-          {
-            label: 'W — Bin Width',
-            desc: 'Hash bucket width',
-            name: 'W', min: 0.001, max: 1, step: 0.001,
-            value: local.W,
           },
         ];
 
@@ -1120,10 +1114,6 @@
               h('div', null,
                 h('div', { style: { color: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' } }, 'M'),
                 h('div', { style: { fontSize: 32, fontFamily: 'var(--font-mono)', color: 'var(--accent)' } }, local.M)
-              ),
-              h('div', null,
-                h('div', { style: { color: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' } }, 'W'),
-                h('div', { style: { fontSize: 32, fontFamily: 'var(--font-mono)', color: 'var(--accent)' } }, local.W.toFixed(3))
               ),
               h('div', { style: { flex: 1, alignSelf: 'center', color: 'var(--text-muted)', fontSize: 12, fontFamily: 'var(--font-mono)', lineHeight: 1.8 } },
                 `Expected buckets: ~${(local.L * local.M).toLocaleString()}`,
@@ -1335,7 +1325,6 @@
           h('div', { className: 'config-strip' },
             h('span', { className: 'config-badge' }, 'L:', h('b', null, config.L)),
             h('span', { className: 'config-badge' }, 'M:', h('b', null, config.M)),
-            h('span', { className: 'config-badge' }, 'W:', h('b', null, config.W.toFixed(3))),
           ),
 
           // CSV Drop Zone (only shown when no data loaded or not done)
@@ -1607,7 +1596,6 @@
           h('div', { className: 'config-strip' },
             h('span', { className: 'config-badge' }, 'L:', h('b', null, config.L)),
             h('span', { className: 'config-badge' }, 'M:', h('b', null, config.M)),
-            h('span', { className: 'config-badge' }, 'W:', h('b', null, config.W.toFixed(3))),
             h('span', { className: 'config-badge' }, 'Index Size: ', h('b', null, dataset.length.toLocaleString(), ' document(s)')),
           ),
 

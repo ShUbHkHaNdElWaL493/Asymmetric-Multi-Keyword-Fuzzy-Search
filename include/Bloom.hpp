@@ -32,10 +32,11 @@ class Bloom
         private:
         double b, w;
         size_t m;
+        size_t id;
         std::array<double, 676> a;
 
         public:
-        HashFunction(size_t m, double w);
+        HashFunction(size_t m, double w, size_t id);
         std::vector<size_t> hash(const Bloom::Keyword& keyword, size_t num_extra_probes) const;
 
     };
@@ -71,7 +72,7 @@ const std::vector<size_t>& Bloom::Keyword::fetch() const
 }
 
 
-Bloom::HashFunction::HashFunction(size_t m, double w) : w(w), m(m)
+Bloom::HashFunction::HashFunction(size_t m, double w, size_t id) : w(w), m(m), id(id)
 {
 
     static std::random_device rd;
@@ -124,9 +125,10 @@ std::vector<size_t> Bloom::HashFunction::hash(const Bloom::Keyword& keyword, siz
     std::vector<size_t> hashes;
     for (int hash : int_hashes)
     {
-        while (hash < 0) hash += this->m;
-        hash = hash % this->m;
-        hashes.push_back((size_t)hash);
+        size_t h1 = std::hash<int>{}(hash);
+        size_t h2 = std::hash<size_t>{}(this->id);
+        size_t combined_hash = h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+        hashes.push_back(combined_hash % this->m);
     }
 
     return hashes;
@@ -138,7 +140,7 @@ Bloom::Bloom(size_t l, size_t m, double w, size_t num_extra_probes) : w(w), l(l)
     this->hash_functions.reserve(l);
     for (size_t i = 0; i < l; i++)
     {
-        this->hash_functions.emplace_back(m, w);
+        this->hash_functions.emplace_back(m, w, i);
     }
 }
 

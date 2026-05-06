@@ -3,8 +3,9 @@
     Shubh Khandelwal
 */
 
+#define W_VAL 4.0
 #define NUM_EXTRA_PROBES 4
-#define K 10
+#define K_VAL 10
 
 #include "crow.h"
 #include <sstream>
@@ -41,12 +42,11 @@ int main()
                 return res;
             }
 
-            const size_t L = static_cast<size_t>(body["L"].i());
-            const size_t M = static_cast<size_t>(body["M"].i());
-            const double W = body["W"].d();
+            const size_t L_VAL = static_cast<size_t>(body["L"].i());
+            const size_t M_VAL = static_cast<size_t>(body["M"].i());
 
             S.reset();
-            S = std::make_unique<Scheme>(L, M, W, NUM_EXTRA_PROBES, K); // Configure Scheme state
+            S = std::make_unique<Scheme>(L_VAL, M_VAL, W_VAL, NUM_EXTRA_PROBES, K_VAL); // Configure Scheme state
             configured = true;
 
             crow::json::wvalue resp;
