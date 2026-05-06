@@ -4,6 +4,7 @@
 */
 
 #pragma once
+#include <algorithm>
 #include <array>
 #include <random>
 #include <vector>
@@ -17,15 +18,15 @@ class Bloom
     {
 
         private:
-        std::vector<uint16_t> bigram_representation;
+        std::vector<size_t> bigram_representation;
 
         public:
         Keyword(const std::string& keyword);
-        const std::vector<uint16_t>& fetch() const;
+        const std::vector<size_t>& fetch() const;
 
     };
 
-    class LocalitySensitiveHashFunction
+    class HashFunction
     {
 
         private:
@@ -34,19 +35,19 @@ class Bloom
         std::array<double, 676> a;
 
         public:
-        LocalitySensitiveHashFunction(size_t m, double w);
-        int hash(const Bloom::Keyword& keyword) const;
+        HashFunction(size_t m, double w);
+        std::vector<size_t> hash(const Bloom::Keyword& keyword, size_t num_extra_probes) const;
 
     };
 
     double w;
     size_t l, m;
-    std::vector<LocalitySensitiveHashFunction> hash_functions;
+    std::vector<HashFunction> hash_functions;
     
     public:
 
     Bloom(size_t l, size_t m, double w);
-    std::vector<double> fit(const std::vector<std::string>& keywords) const;
+    std::vector<double> fit(const std::vector<std::string>& keywords, size_t num_extra_probes) const;
 
 };
 
@@ -54,9 +55,9 @@ Bloom::Keyword::Keyword(const std::string& keyword)
 {
     for (size_t i = 0; i < keyword.length() - 1; i++)
     {
-        uint16_t c = static_cast<uint16_t>(std::toupper(static_cast<unsigned char>(keyword.at(i)))) - 65;
-        uint16_t c1 = static_cast<uint16_t>(std::toupper(static_cast<unsigned char>(keyword.at(i + 1)))) - 65;
-        uint16_t index = c * 26 + c1;
+        size_t c = static_cast<size_t>(std::toupper(static_cast<unsigned char>(keyword.at(i)))) - 65;
+        size_t c1 = static_cast<size_t>(std::toupper(static_cast<unsigned char>(keyword.at(i + 1)))) - 65;
+        size_t index = c * 26 + c1;
         if (std::find(this->bigram_representation.begin(), this->bigram_representation.end(), index) == this->bigram_representation.end())
         {
             this->bigram_representation.push_back(index);
@@ -64,13 +65,13 @@ Bloom::Keyword::Keyword(const std::string& keyword)
     }
 }
 
-const std::vector<uint16_t>& Bloom::Keyword::fetch() const
+const std::vector<size_t>& Bloom::Keyword::fetch() const
 {
     return this->bigram_representation;
 }
 
 
-Bloom::LocalitySensitiveHashFunction::LocalitySensitiveHashFunction(size_t m, double w) : w(w), m(m)
+Bloom::HashFunction::HashFunction(size_t m, double w) : w(w), m(m)
 {
 
     static std::random_device rd;
@@ -87,22 +88,48 @@ Bloom::LocalitySensitiveHashFunction::LocalitySensitiveHashFunction(size_t m, do
 
 }
 
-int Bloom::LocalitySensitiveHashFunction::hash(const Bloom::Keyword& keyword) const
+std::vector<size_t> Bloom::HashFunction::hash(const Bloom::Keyword& keyword, size_t num_extra_probes) const
 {
 
     double dot_product = 0;
-    const std::vector<uint16_t>& representation = keyword.fetch();
-
-    for (uint16_t index : representation)
+    const std::vector<size_t>& representation = keyword.fetch();
+    for (size_t index : representation)
     {
         dot_product += this->a[index];
     }
 
     double val = (dot_product + this->b) / this->w;
-    int hash_val = static_cast<int>(std::floor(val)) % (int)(this->m);
+    int primary_hash = static_cast<int>(std::floor(val));
 
-    while (hash_val < 0) hash_val += this->m;
-    return hash_val;
+    std::vector<int> int_hashes;
+    if (num_extra_probes % 2 == 0)
+    {
+        primary_hash -= num_extra_probes / 2;
+    } else
+    {
+        if (val - primary_hash < 0.5)
+        {
+            primary_hash -= (num_extra_probes + 1) / 2;
+        } else
+        {
+            primary_hash -= (num_extra_probes - 1) / 2;
+        }
+    }
+    int last_hash = primary_hash + num_extra_probes;
+    while (primary_hash <= last_hash)
+    {
+        int_hashes.push_back(primary_hash++);
+    }
+
+    std::vector<size_t> hashes;
+    for (int hash : int_hashes)
+    {
+        while (hash < 0) hash += this->m;
+        hash = hash % this->m;
+        hashes.push_back((size_t)hash);
+    }
+
+    return hashes;
     
 }
 
@@ -115,15 +142,18 @@ Bloom::Bloom(size_t l, size_t m, double w) : w(w), l(l), m(m)
     }
 }
 
-std::vector<double> Bloom::fit(const std::vector<std::string>& keywords) const
+std::vector<double> Bloom::fit(const std::vector<std::string>& keywords, size_t num_extra_probes) const
 {
     std::vector<double> filter(this->m, 0.0);
     for (const std::string& keyword : keywords)
     {
         Keyword x(keyword);
-        for (const LocalitySensitiveHashFunction& hash_function : this->hash_functions)
+        for (const HashFunction& hash_function : this->hash_functions)
         {
-            filter[hash_function.hash(x)] = 1;
+            for (size_t hash : hash_function.hash(x, num_extra_probes))
+            {
+                filter[hash] = 1;
+            }
         }
     }
     return filter;
