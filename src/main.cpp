@@ -3,7 +3,9 @@
     Shubh Khandelwal
 */
 
+#define NUM_EXTRA_PROBES 4
 #define K 10
+
 #include "crow.h"
 #include <sstream>
 #include <string>
@@ -44,7 +46,7 @@ int main()
             const double W = body["W"].d();
 
             S.reset();
-            S = std::make_unique<Scheme>(L, M, W, K); // Configure Scheme state
+            S = std::make_unique<Scheme>(L, M, W, NUM_EXTRA_PROBES, K); // Configure Scheme state
             configured = true;
 
             crow::json::wvalue resp;

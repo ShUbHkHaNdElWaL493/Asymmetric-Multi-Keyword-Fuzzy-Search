@@ -41,13 +41,13 @@ class Bloom
     };
 
     double w;
-    size_t l, m;
+    size_t l, m, num_extra_probes;
     std::vector<HashFunction> hash_functions;
     
     public:
 
-    Bloom(size_t l, size_t m, double w);
-    std::vector<double> fit(const std::vector<std::string>& keywords, size_t num_extra_probes) const;
+    Bloom(size_t l, size_t m, double w, size_t num_extra_probes);
+    std::vector<double> fit(const std::vector<std::string>& keywords) const;
 
 };
 
@@ -133,7 +133,7 @@ std::vector<size_t> Bloom::HashFunction::hash(const Bloom::Keyword& keyword, siz
     
 }
 
-Bloom::Bloom(size_t l, size_t m, double w) : w(w), l(l), m(m)
+Bloom::Bloom(size_t l, size_t m, double w, size_t num_extra_probes) : w(w), l(l), m(m), num_extra_probes(num_extra_probes)
 {
     this->hash_functions.reserve(l);
     for (size_t i = 0; i < l; i++)
@@ -142,7 +142,7 @@ Bloom::Bloom(size_t l, size_t m, double w) : w(w), l(l), m(m)
     }
 }
 
-std::vector<double> Bloom::fit(const std::vector<std::string>& keywords, size_t num_extra_probes) const
+std::vector<double> Bloom::fit(const std::vector<std::string>& keywords) const
 {
     std::vector<double> filter(this->m, 0.0);
     for (const std::string& keyword : keywords)
@@ -150,7 +150,7 @@ std::vector<double> Bloom::fit(const std::vector<std::string>& keywords, size_t 
         Keyword x(keyword);
         for (const HashFunction& hash_function : this->hash_functions)
         {
-            for (size_t hash : hash_function.hash(x, num_extra_probes))
+            for (size_t hash : hash_function.hash(x, this->num_extra_probes))
             {
                 filter[hash] = 1;
             }

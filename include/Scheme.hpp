@@ -23,7 +23,7 @@ class Scheme
     
     public:
 
-        Scheme(size_t l, size_t m, double w, size_t k);
+        Scheme(size_t l, size_t m, double w, size_t num_extra_probes, size_t k);
         void resetIndex();
         void addEntry(std::string document_id, std::string document_name, std::vector<std::string> document_keywords);
         std::vector<std::pair<std::pair<std::string, std::string>, double>> match(std::vector<std::string> query_keywords);
@@ -33,7 +33,7 @@ class Scheme
 Scheme::Scheme(const Bloom& bloom_filter, size_t m, size_t k) : k(k), key_gen(m), index_gen(bloom_filter, key_gen.getKey()), query_gen(bloom_filter, key_gen.getKey())
 {}
 
-Scheme::Scheme(size_t l, size_t m, double w, size_t k) : Scheme(Bloom(l, m, w), m, k)
+Scheme::Scheme(size_t l, size_t m, double w, size_t num_extra_probes, size_t k) : Scheme(Bloom(l, m, w, num_extra_probes), m, k)
 {}
 
 void Scheme::resetIndex()
