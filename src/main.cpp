@@ -4,7 +4,7 @@
 */
 
 #define W_VAL 4.0
-#define NUM_EXTRA_PROBES 0
+#define NUM_EXTRA_PROBES 2
 #define K_VAL 10
 
 #include <atomic>
