@@ -12,10 +12,11 @@ class QueryGen
 
     private:
     Bloom B;
-    SecretKey SK;
     std::random_device rd;
     std::mt19937 gen;
     std::normal_distribution<double> random_distribution;
+    std::vector<bool> S;
+    std::vector<std::vector<double>> M1I, M2I;
 
     public:
     QueryGen(Bloom B, const SecretKey& SK);
@@ -23,19 +24,20 @@ class QueryGen
 
 };
 
-QueryGen::QueryGen(Bloom B, const SecretKey& SK) : B(B), SK(SK), rd(), gen(rd()), random_distribution(0.0, 1.0)
+QueryGen::QueryGen(Bloom B, const SecretKey& SK) : B(B), rd(), gen(rd()), random_distribution(0.0, 1.0), M1I(SK.getM1I()), M2I(SK.getM2I()), S(SK.getS())
 {}
 
 std::pair<std::vector<double>, std::vector<double>> QueryGen::encode(std::vector<std::string> keywords)
 {
 
-    const size_t m = this->SK.getSecurityParameter();
     std::vector<double> Q = this->B.fit(keywords);
+    const size_t m = Q.size();
+
     std::vector<double> Q1(m, 0.0);
     std::vector<double> Q2(m, 0.0);
     for (size_t i = 0; i < m; i++)
     {
-        if (this->SK.getS()[i])
+        if (this->S[i])
         {
             double r = random_distribution(gen);
             Q1[i] = 0.5 * Q[i] + r;
@@ -50,16 +52,14 @@ std::pair<std::vector<double>, std::vector<double>> QueryGen::encode(std::vector
     std::pair<std::vector<double>, std::vector<double>> EncodedQ;
     EncodedQ.first.assign(m, 0.0);
     EncodedQ.second.assign(m, 0.0);
-    std::vector<std::vector<double>> M1I = this->SK.getM1I();
-    std::vector<std::vector<double>> M2I = this->SK.getM2I();
     for (size_t i = 0; i < m; i++)
     {
         EncodedQ.first[i] = 0;
         EncodedQ.second[i] = 0;
         for (size_t j = 0; j < m; j++)
         {
-            EncodedQ.first[i] += M1I[i][j] * Q1[j];
-            EncodedQ.second[i] += M2I[i][j] * Q2[j];
+            EncodedQ.first[i] += this->M1I[i][j] * Q1[j];
+            EncodedQ.second[i] += this->M2I[i][j] * Q2[j];
         }
     }
 

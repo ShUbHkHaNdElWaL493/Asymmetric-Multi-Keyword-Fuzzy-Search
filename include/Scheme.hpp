@@ -15,11 +15,10 @@ class Scheme
     private:
 
         size_t k;
-        KeyGen key_gen;
         IndexGen index_gen;
         QueryGen query_gen;
         std::vector<std::pair<std::pair<std::string, std::string>, std::pair<std::vector<double>, std::vector<double>>>> entries;
-        Scheme(const Bloom& bloom_filter, size_t m, size_t k);
+        Scheme(const Bloom& bloom_filter, const KeyGen& key_gen, size_t m, size_t k);
     
     public:
 
@@ -30,10 +29,10 @@ class Scheme
 
 };
 
-Scheme::Scheme(const Bloom& bloom_filter, size_t m, size_t k) : k(k), key_gen(m), index_gen(bloom_filter, key_gen.getKey()), query_gen(bloom_filter, key_gen.getKey())
+Scheme::Scheme(const Bloom& bloom_filter, const KeyGen& key_gen, size_t m, size_t k) : k(k), index_gen(bloom_filter, key_gen.getKey()), query_gen(bloom_filter, key_gen.getKey())
 {}
 
-Scheme::Scheme(size_t l, size_t m, double w, size_t num_extra_probes, size_t k) : Scheme(Bloom(l, m, w, num_extra_probes), m, k)
+Scheme::Scheme(size_t l, size_t m, double w, size_t num_extra_probes, size_t k) : Scheme(Bloom(l, m, w, num_extra_probes), KeyGen(m), m, k)
 {}
 
 void Scheme::resetIndex()
@@ -53,16 +52,25 @@ void Scheme::addEntry(std::string document_id, std::string document_name, std::v
 
 std::vector<std::pair<std::pair<std::string, std::string>, double>> Scheme::match(std::vector<std::string> query_keywords)
 {
-    const size_t m = this->key_gen.getKey().getSecurityParameter();
+
+    std::pair<std::vector<double>, std::vector<double>> encoded_q = this->query_gen.encode(query_keywords);
     std::vector<std::pair<std::pair<std::string, std::string>, double>> matches;
+
+    std::pair<std::vector<double>, std::vector<double>> encoded_q_1 = this->index_gen.encode(query_keywords);
+    double max_match = 0;
+    for (size_t i = 0; i < encoded_q.first.size(); i++)
+    {
+        max_match += encoded_q.first[i] * encoded_q_1.first[i] + encoded_q.second[i] * encoded_q_1.second[i];
+    }
+
     for (const auto& entry : this->entries)
     {
-        std::pair<std::vector<double>, std::vector<double>> encoded_q = this->query_gen.encode(query_keywords);
         double out = 0;
-        for (size_t i = 0; i < m; i++)
+        for (size_t i = 0; i < encoded_q.second.size(); i++)
         {
             out += entry.second.first[i] * encoded_q.first[i] + entry.second.second[i] * encoded_q.second[i];
         }
+        out /= max_match;
         if (matches.size() < this->k)
         {
             std::pair<std::pair<std::string, std::string>, double> new_match;
@@ -96,5 +104,7 @@ std::vector<std::pair<std::pair<std::string, std::string>, double>> Scheme::matc
             }
         }
     }
+
     return matches;
+
 }

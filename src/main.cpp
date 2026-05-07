@@ -4,9 +4,10 @@
 */
 
 #define W_VAL 4.0
-#define NUM_EXTRA_PROBES 4
+#define NUM_EXTRA_PROBES 0
 #define K_VAL 10
 
+#include <atomic>
 #include "crow.h"
 #include <sstream>
 #include <string>
@@ -19,6 +20,9 @@ int main()
 
         bool configured = false; // becomes true after /api/config succeeds
         std::unique_ptr<Scheme> S;
+
+        // Thread-safe variables to share state between routes
+        std::atomic<int> current_progress{0};
 
         crow::SimpleApp app;
 
@@ -58,7 +62,7 @@ int main()
 
         // ── POST /api/build ──────────────────────────────────────────────────
         CROW_ROUTE(app, "/api/build").methods(crow::HTTPMethod::POST)
-        ([&S, &configured](const crow::request& req)
+        ([&current_progress, &S, &configured](const crow::request& req)
         {
             if (!configured)
             {
@@ -75,6 +79,8 @@ int main()
 
             S->resetIndex();
 
+            current_progress.store(0);
+            size_t i = 1, total_documents = body.size();
             for (auto& document : body)
             {
                 const std::string document_id   = document["docId"].s();
@@ -85,12 +91,26 @@ int main()
                     document_keywords.push_back(kw.s());
                 }
                 S->addEntry(document_id, document_name, document_keywords);
+                current_progress.store(i++ * 100 / total_documents);
             }
+            current_progress.store(100);
 
             crow::json::wvalue resp;
             resp["status"] = "indexed";
             crow::response res(resp);
             return res;
+        });
+
+        // ── GET /api/progress ────────────────────────────────────────────────
+        CROW_ROUTE(app, "/api/progress").methods(crow::HTTPMethod::GET)
+        ([&current_progress]()
+        {
+            crow::json::wvalue resp;
+            
+            // Read the atomic variables
+            resp["progress"] = current_progress.load();
+            
+            return crow::response(resp);
         });
 
         // ── POST /api/reset ──────────────────────────────────────────────────

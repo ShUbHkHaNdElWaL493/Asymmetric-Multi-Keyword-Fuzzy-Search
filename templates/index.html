@@ -1142,15 +1142,6 @@
       // and simulated Build Index progress bar.
       // ================================================================
 
-      // Progress simulation stages
-      const INDEX_STAGES = [
-        'Tokenizing corpus',
-        'Building hash families',
-        'Projecting into buckets',
-        'Finalizing index',
-        'Verifying integrity',
-      ];
-
       function Page2Data() {
         const { state, dispatch } = useApp();
         const { dataset, config } = state;
@@ -1158,7 +1149,6 @@
         const [dragging, setDragging] = useState(false);
         const [indexing, setIndexing] = useState(false);
         const [progress, setProgress] = useState(state.indexed ? 100 : 0);
-        const [stageIdx, setStageIdx] = useState(state.indexed ? INDEX_STAGES.length : 0);
         const [done, setDone] = useState(state.indexed);
         const fileRef = useRef(null);
         const intervalRef = useRef(null);
@@ -1181,7 +1171,6 @@
               dispatch({ type: 'SET_INDEXED', payload: false });
               setDone(false);
               setProgress(0);
-              setStageIdx(0);
               setIndexing(false);
             },
             error: (err) => alert('CSV parse error: ' + err.message)
@@ -1231,34 +1220,41 @@
 
           setIndexing(true);
           setProgress(0);
-          setStageIdx(0);
 
-          // Animate the progress bar while waiting for the server.
-          // We advance through stages up to ~90 % so that the last 10 %
-          // only completes once we actually hear back.
-          let pct = 0;
-          intervalRef.current = setInterval(() => {
-            pct = Math.min(pct + Math.random() * 3 + 0.5, 90);
-            setProgress(pct);
-            setStageIdx(Math.min(
-              Math.floor((pct / 90) * (INDEX_STAGES.length - 1)),
-              INDEX_STAGES.length - 1
-            ));
-          }, 80);
-
-          // Build the payload — strip the internal UI-only `id` and
-          // `checked` fields; the server only needs docId/docName/keywords.
           const payload = dataset.map(({ docId, docName, keywords }) => ({
             docId, docName, keywords,
           }));
 
           try {
-            const res = await fetch('/api/build', {
+            // 1. Kick off the indexing request without awaiting it immediately
+            const buildPromise = fetch('/api/build', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
             });
 
+            // 2. Start polling the backend for real progress every 500ms
+            intervalRef.current = setInterval(async () => {
+              try {
+                const progressRes = await fetch('/api/progress');
+                if (progressRes.ok) {
+                  const data = await progressRes.json();
+                  
+                  // Update UI with real data from the server
+                  if (data.progress !== undefined) setProgress(data.progress);
+                  
+                  // Failsafe: stop polling if backend says it's 100%
+                  if (data.progress >= 100) clearInterval(intervalRef.current);
+                }
+              } catch (pollErr) {
+                console.warn('Polling failed:', pollErr);
+              }
+            }, 100);
+
+            // 3. Now wait for the main build request to actually finish
+            const res = await buildPromise;
+            
+            // Clean up the polling interval once the main request resolves
             clearInterval(intervalRef.current);
 
             if (!res.ok) {
@@ -1266,9 +1262,8 @@
               throw new Error(`Server error ${res.status}: ${msg}`);
             }
 
-            // Success — complete the progress bar
+            // 4. Success — snap to 100% and unlock the next step
             setProgress(100);
-            setStageIdx(INDEX_STAGES.length);
             setIndexing(false);
             setDone(true);
             dispatch({ type: 'SET_INDEXED', payload: true });
@@ -1277,7 +1272,6 @@
             clearInterval(intervalRef.current);
             setIndexing(false);
             setProgress(0);
-            setStageIdx(0);
             alert('Failed to build the index on the server.\n\n' + err.message);
           }
         }
@@ -1292,7 +1286,7 @@
             const res = await fetch('/api/reset', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: dataset.length
+              body: JSON.stringify(dataset.length)
             });
 
             clearInterval(intervalRef.current);
@@ -1308,7 +1302,6 @@
           } finally {
             setDone(false);
             setProgress(0);
-            setStageIdx(0);
             dispatch({ type: 'SET_INDEXED', payload: false });
           }
 
@@ -1464,15 +1457,6 @@
               h('div', { className: 'progress-track' },
                 h('div', { className: 'progress-fill', style: { width: progress + '%' } })
               ),
-              h('div', { className: 'progress-stages' },
-                INDEX_STAGES.map((s, i) =>
-                  h('span', {
-                    key: i,
-                    className: `stage-pill ${i < stageIdx ? 'done' : i === stageIdx && !done ? 'active' : ''
-                      }`
-                  }, (i < stageIdx || done ? '✓ ' : '') + s)
-                )
-              )
             ),
 
             // Action row

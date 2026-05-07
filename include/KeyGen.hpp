@@ -13,7 +13,7 @@ class KeyGen
     private:
 
         SecretKey SK;
-        std::vector<std::vector<double>> generateInvertibleMatrix(std::mt19937& gen) const;
+        std::vector<std::vector<double>> generateInvertibleMatrix(const size_t& m, std::mt19937& gen) const;
 
     public:
 
@@ -22,10 +22,9 @@ class KeyGen
 
 };
 
-std::vector<std::vector<double>> KeyGen::generateInvertibleMatrix(std::mt19937& gen) const
+std::vector<std::vector<double>> KeyGen::generateInvertibleMatrix(const size_t& m, std::mt19937& gen) const
 {
 
-    const size_t m = this->SK.getSecurityParameter();
     std::uniform_real_distribution<double> dist(-1.0, 1.0);
     std::vector<std::vector<double>> A(m, std::vector<double> (m, 0.0));
 
@@ -49,11 +48,11 @@ KeyGen::KeyGen(size_t m) : SK(m)
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    this->SK.setM1(this->generateInvertibleMatrix(gen));
-    this->SK.setM2(this->generateInvertibleMatrix(gen));
+    this->SK.setM1(this->generateInvertibleMatrix(m, gen));
+    this->SK.setM2(this->generateInvertibleMatrix(m, gen));
 
     std::uniform_int_distribution<> bool_distribution(0, 1);
-    std::vector<bool> S(this->SK.getSecurityParameter(), false);
+    std::vector<bool> S(m, false);
     for (size_t i = 0; i < S.size(); i++)
     {
         if (bool_distribution(gen))
