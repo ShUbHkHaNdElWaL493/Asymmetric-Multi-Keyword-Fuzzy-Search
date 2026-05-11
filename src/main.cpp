@@ -19,7 +19,7 @@ int main()
     {
 
         bool configured = false; // becomes true after /api/config succeeds
-        std::unique_ptr<Scheme> S;
+        std::unique_ptr<Scheme<2>> S;
 
         // Thread-safe variables to share state between routes
         std::atomic<int> current_progress{0};
@@ -50,7 +50,7 @@ int main()
             const size_t M_VAL = static_cast<size_t>(body["M"].i());
 
             S.reset();
-            S = std::make_unique<Scheme>(L_VAL, M_VAL, W_VAL, NUM_EXTRA_PROBES, K_VAL); // Configure Scheme state
+            S = std::make_unique<Scheme<2>>(L_VAL, M_VAL, W_VAL, NUM_EXTRA_PROBES, K_VAL); // Configure Scheme state
             configured = true;
 
             crow::json::wvalue resp;

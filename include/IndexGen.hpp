@@ -7,11 +7,12 @@
 #include "Bloom.hpp"
 #include "SecretKey.hpp"
 
+template<size_t n>
 class IndexGen
 {
     
     private:
-    Bloom B;
+    Bloom<n> B;
     std::random_device rd;
     std::mt19937 gen;
     std::normal_distribution<double> random_distribution;
@@ -19,15 +20,17 @@ class IndexGen
     std::vector<std::vector<double>> M1T, M2T;
 
     public:
-    IndexGen(Bloom B, const SecretKey& SK);
+    IndexGen(Bloom<n> B, const SecretKey& SK);
     std::pair<std::vector<double>, std::vector<double>> encode(std::vector<std::string> keywords);
 
 };
 
-IndexGen::IndexGen(Bloom B, const SecretKey& SK) : B(B), rd(), gen(rd()), random_distribution(0.0, 1.0), M1T(SK.getM1T()), M2T(SK.getM2T()), S(SK.getS())
+template<size_t n>
+IndexGen<n>::IndexGen(Bloom<n> B, const SecretKey& SK) : B(B), rd(), gen(rd()), random_distribution(0.0, 1.0), M1T(SK.getM1T()), M2T(SK.getM2T()), S(SK.getS())
 {}
 
-std::pair<std::vector<double>, std::vector<double>> IndexGen::encode(std::vector<std::string> keywords)
+template<size_t n>
+std::pair<std::vector<double>, std::vector<double>> IndexGen<n>::encode(std::vector<std::string> keywords)
 {
 
     std::vector<double> I = this->B.fit(keywords);

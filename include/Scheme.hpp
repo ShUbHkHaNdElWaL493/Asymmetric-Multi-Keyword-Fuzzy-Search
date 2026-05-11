@@ -9,16 +9,17 @@
 #include "KeyGen.hpp"
 #include "QueryGen.hpp"
 
+template<size_t n>
 class Scheme
 {
 
     private:
 
         size_t k;
-        IndexGen index_gen;
-        QueryGen query_gen;
+        IndexGen<n> index_gen;
+        QueryGen<n> query_gen;
         std::vector<std::pair<std::pair<std::string, std::string>, std::pair<std::vector<double>, std::vector<double>>>> entries;
-        Scheme(const Bloom& bloom_filter, const KeyGen& key_gen, size_t m, size_t k);
+        Scheme(const Bloom<n>& bloom_filter, const KeyGen& key_gen, size_t m, size_t k);
     
     public:
 
@@ -29,18 +30,22 @@ class Scheme
 
 };
 
-Scheme::Scheme(const Bloom& bloom_filter, const KeyGen& key_gen, size_t m, size_t k) : k(k), index_gen(bloom_filter, key_gen.getKey()), query_gen(bloom_filter, key_gen.getKey())
+template<size_t n>
+Scheme<n>::Scheme(const Bloom<n>& bloom_filter, const KeyGen& key_gen, size_t m, size_t k) : k(k), index_gen(bloom_filter, key_gen.getKey()), query_gen(bloom_filter, key_gen.getKey())
 {}
 
-Scheme::Scheme(size_t l, size_t m, double w, size_t num_extra_probes, size_t k) : Scheme(Bloom(l, m, w, num_extra_probes), KeyGen(m), m, k)
+template<size_t n>
+Scheme<n>::Scheme(size_t l, size_t m, double w, size_t num_extra_probes, size_t k) : Scheme(Bloom<2>(l, m, w, num_extra_probes), KeyGen(m), m, k)
 {}
 
-void Scheme::resetIndex()
+template<size_t n>
+void Scheme<n>::resetIndex()
 {
     this->entries.clear();
 }
 
-void Scheme::addEntry(std::string document_id, std::string document_name, std::vector<std::string> document_keywords)
+template<size_t n>
+void Scheme<n>::addEntry(std::string document_id, std::string document_name, std::vector<std::string> document_keywords)
 {
     std::pair<std::vector<double>, std::vector<double>> encoded_document_keywords = this->index_gen.encode(document_keywords);
     std::pair<std::pair<std::string, std::string>, std::pair<std::vector<double>, std::vector<double>>> entry;
@@ -50,7 +55,8 @@ void Scheme::addEntry(std::string document_id, std::string document_name, std::v
     this->entries.push_back(entry);
 }
 
-std::vector<std::pair<std::pair<std::string, std::string>, double>> Scheme::match(std::vector<std::string> query_keywords)
+template<size_t n>
+std::vector<std::pair<std::pair<std::string, std::string>, double>> Scheme<n>::match(std::vector<std::string> query_keywords)
 {
 
     std::pair<std::vector<double>, std::vector<double>> encoded_q = this->query_gen.encode(query_keywords);

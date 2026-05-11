@@ -7,11 +7,12 @@
 #include "Bloom.hpp"
 #include "SecretKey.hpp"
 
+template<size_t n>
 class QueryGen
 {
 
     private:
-    Bloom B;
+    Bloom<n> B;
     std::random_device rd;
     std::mt19937 gen;
     std::normal_distribution<double> random_distribution;
@@ -19,19 +20,27 @@ class QueryGen
     std::vector<std::vector<double>> M1I, M2I;
 
     public:
-    QueryGen(Bloom B, const SecretKey& SK);
+    QueryGen(Bloom<n> B, const SecretKey& SK);
     std::pair<std::vector<double>, std::vector<double>> encode(std::vector<std::string> keywords);
 
 };
 
-QueryGen::QueryGen(Bloom B, const SecretKey& SK) : B(B), rd(), gen(rd()), random_distribution(0.0, 1.0), M1I(SK.getM1I()), M2I(SK.getM2I()), S(SK.getS())
+template<size_t n>
+QueryGen<n>::QueryGen(Bloom<n> B, const SecretKey& SK) : B(B), rd(), gen(rd()), random_distribution(0.0, 1.0), M1I(SK.getM1I()), M2I(SK.getM2I()), S(SK.getS())
 {}
 
-std::pair<std::vector<double>, std::vector<double>> QueryGen::encode(std::vector<std::string> keywords)
+template<size_t n>
+std::pair<std::vector<double>, std::vector<double>> QueryGen<n>::encode(std::vector<std::string> keywords)
 {
 
+    double gamma = random_distribution(gen);
     std::vector<double> Q = this->B.fit(keywords);
     const size_t m = Q.size();
+
+    for (size_t i = 0; i < m; i++)
+    {
+        Q[i] *= gamma;
+    }
 
     std::vector<double> Q1(m, 0.0);
     std::vector<double> Q2(m, 0.0);

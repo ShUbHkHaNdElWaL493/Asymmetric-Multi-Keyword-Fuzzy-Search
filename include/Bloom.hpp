@@ -5,10 +5,10 @@
 
 #pragma once
 #include <algorithm>
-#include <array>
 #include <random>
 #include <vector>
 
+template<size_t n>
 class Bloom
 {
 
@@ -33,7 +33,7 @@ class Bloom
         double b, w;
         size_t m;
         size_t id;
-        std::array<double, 676> a;
+        std::vector<double> a;
 
         public:
         HashFunction(size_t m, double w, size_t id);
@@ -52,13 +52,17 @@ class Bloom
 
 };
 
-Bloom::Keyword::Keyword(const std::string& keyword)
+template<size_t n>
+Bloom<n>::Keyword::Keyword(const std::string& keyword)
 {
-    for (size_t i = 0; i < keyword.length() - 1; i++)
+    for (size_t i = 0; i <= keyword.length() - n; i++)
     {
-        size_t c = static_cast<size_t>(std::toupper(static_cast<unsigned char>(keyword.at(i)))) - 65;
-        size_t c1 = static_cast<size_t>(std::toupper(static_cast<unsigned char>(keyword.at(i + 1)))) - 65;
-        size_t index = c * 26 + c1;
+        size_t index = 0;
+        for (size_t j = i; j < i + n; j++)
+        {
+            index *= 26;
+            index += static_cast<size_t>(std::toupper(static_cast<unsigned char>(keyword.at(j)))) - 65;
+        }
         if (std::find(this->bigram_representation.begin(), this->bigram_representation.end(), index) == this->bigram_representation.end())
         {
             this->bigram_representation.push_back(index);
@@ -66,13 +70,15 @@ Bloom::Keyword::Keyword(const std::string& keyword)
     }
 }
 
-const std::vector<size_t>& Bloom::Keyword::fetch() const
+template<size_t n>
+const std::vector<size_t>& Bloom<n>::Keyword::fetch() const
 {
     return this->bigram_representation;
 }
 
 
-Bloom::HashFunction::HashFunction(size_t m, double w, size_t id) : w(w), m(m), id(id)
+template<size_t n>
+Bloom<n>::HashFunction::HashFunction(size_t m, double w, size_t id) : w(w), m(m), id(id), a(pow(26, n))
 {
 
     static std::random_device rd;
@@ -81,7 +87,7 @@ Bloom::HashFunction::HashFunction(size_t m, double w, size_t id) : w(w), m(m), i
     std::normal_distribution<double> normal_dist(0.0, 1.0);
     std::uniform_real_distribution<double> uniform_float_dist(0.0, w);
 
-    for (size_t i = 0; i < 676; i++)
+    for (size_t i = 0; i < a.size(); i++)
     {
         this->a[i] = normal_dist(gen);
     }
@@ -89,7 +95,8 @@ Bloom::HashFunction::HashFunction(size_t m, double w, size_t id) : w(w), m(m), i
 
 }
 
-std::vector<size_t> Bloom::HashFunction::hash(const Bloom::Keyword& keyword, size_t num_extra_probes) const
+template<size_t n>
+std::vector<size_t> Bloom<n>::HashFunction::hash(const Bloom::Keyword& keyword, size_t num_extra_probes) const
 {
 
     double dot_product = 0;
@@ -135,7 +142,8 @@ std::vector<size_t> Bloom::HashFunction::hash(const Bloom::Keyword& keyword, siz
     
 }
 
-Bloom::Bloom(size_t l, size_t m, double w, size_t num_extra_probes) : w(w), l(l), m(m), num_extra_probes(num_extra_probes)
+template<size_t n>
+Bloom<n>::Bloom(size_t l, size_t m, double w, size_t num_extra_probes) : w(w), l(l), m(m), num_extra_probes(num_extra_probes)
 {
     this->hash_functions.reserve(l);
     for (size_t i = 0; i < l; i++)
@@ -144,7 +152,8 @@ Bloom::Bloom(size_t l, size_t m, double w, size_t num_extra_probes) : w(w), l(l)
     }
 }
 
-std::vector<double> Bloom::fit(const std::vector<std::string>& keywords) const
+template<size_t n>
+std::vector<double> Bloom<n>::fit(const std::vector<std::string>& keywords) const
 {
     std::vector<double> filter(this->m, 0.0);
     for (const std::string& keyword : keywords)
