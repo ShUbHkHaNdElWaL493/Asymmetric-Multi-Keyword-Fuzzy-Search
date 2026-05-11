@@ -35,7 +35,7 @@ Scheme<n>::Scheme(const Bloom<n>& bloom_filter, const KeyGen& key_gen, size_t m,
 {}
 
 template<size_t n>
-Scheme<n>::Scheme(size_t l, size_t m, double w, size_t num_extra_probes, size_t k) : Scheme(Bloom<2>(l, m, w, num_extra_probes), KeyGen(m), m, k)
+Scheme<n>::Scheme(size_t l, size_t m, double w, size_t num_extra_probes, size_t k) : Scheme(Bloom<n>(l, m, w, num_extra_probes), KeyGen(m), m, k)
 {}
 
 template<size_t n>
