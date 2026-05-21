@@ -35,6 +35,13 @@ int main()
             res.end();
         });
 
+        CROW_ROUTE(app, "/node_modules/<path>")
+        ([](const crow::request& req, crow::response& res, std::string path)
+        {
+            res.set_static_file_info("node_modules/" + path);
+            res.end();
+        });
+
         // ── POST /api/config ─────────────────────────────────────────────────
         CROW_ROUTE(app, "/api/config").methods(crow::HTTPMethod::POST)
         ([&S, &configured](const crow::request& req)
@@ -200,6 +207,7 @@ int main()
     }
     catch (const std::exception& e)
     {
+        std::cerr << "Fatal Error: " << e.what() << std::endl;
         return 1;
     }
 

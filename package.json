@@ -1,0 +1,31 @@
+{
+  "name": "fyp2026",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShUbHkHaNdElWaL493/Asymmetric-Multi-Keyword-Fuzzy-Search.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ShUbHkHaNdElWaL493/Asymmetric-Multi-Keyword-Fuzzy-Search/issues"
+  },
+  "homepage": "https://github.com/ShUbHkHaNdElWaL493/Asymmetric-Multi-Keyword-Fuzzy-Search#readme",
+  "dependencies": {
+    "@fontsource/dm-sans": "^5.2.8",
+    "@fontsource/space-mono": "^5.2.9",
+    "papaparse": "^5.5.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}
